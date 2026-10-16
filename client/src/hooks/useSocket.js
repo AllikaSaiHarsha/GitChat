@@ -8,11 +8,14 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 // Call resetSocket() on login/logout so a stale token is never reused.
 let socketInstance = null;
 
-export function getSocket(token = '') {
+export function getSocket(token) {
   if (!socketInstance) {
     socketInstance = io(SERVER_URL, { autoConnect: false });
   }
-  socketInstance.auth = { token };
+  // Only set auth when a token is passed: send/react/typing helpers call
+  // getSocket() bare, and socket.io reads auth again on every reconnect —
+  // clobbering it would fail the handshake and sign the user out.
+  if (token) socketInstance.auth = { token };
   return socketInstance;
 }
 

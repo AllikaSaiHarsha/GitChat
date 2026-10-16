@@ -2267,3 +2267,38 @@ button.ghost:hover {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Socket dropped (server restart, network blip): sending is paused */
+.reconnect-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 16px 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(210, 153, 34, 0.55);
+  border-radius: 6px;
+  background: rgba(187, 128, 9, 0.15);
+  color: #d29922;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.reconnect-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #d29922;
+  animation: reconnect-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes reconnect-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}

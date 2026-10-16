@@ -32,6 +32,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
   const [lastSeenAt, setLastSeenAt] = useState('');
   const [accessDenied, setAccessDenied] = useState(null); // { room, removed? } or null
   const [membersOpen, setMembersOpen] = useState(false);
+  const [connected, setConnected] = useState(true); // false while the socket is down
   const bottomRef = useRef(null);
   const typingTimeout = useRef(null);
   const highlightTimer = useRef(null);
@@ -70,9 +71,16 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     // Join — and re-join after every reconnect. Without this, a reconnected
     // socket sits in no room and silently stops receiving messages/reactions.
     const joinNow = () => socket.emit('join_room', { room });
+    const onConnect = () => {
+      setConnected(true);
+      joinNow();
+    };
+    const onDisconnect = () => setConnected(false);
     if (socket.connected) joinNow();
     else socket.connect();
-    socket.on('connect', joinNow);
+    setConnected(socket.connected);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
 
     // "New" divider: first message after your previous visit to this room.
     const placeDivider = (list) => {
@@ -171,7 +179,8 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
 
     return () => {
       clearTimeout(historyFallback);
-      socket.off('connect', joinNow);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
       socket.off('message_history', onHistory);
       socket.off('receive_message', onReceive);
       socket.off('message_reaction', onReaction);
@@ -241,7 +250,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
 
   const send = () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || !connected) return;
     getSocket().emit('send_message', { room, text });
     setInput('');
     getSocket().emit('typing', { room, isTyping: false });
@@ -314,6 +323,22 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
             {onlineUsers.length} online
           </motion.span>
         </header>
+
+        <AnimatePresence>
+          {!connected && (
+            <motion.div
+              className="reconnect-banner"
+              role="status"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+            >
+              <span className="reconnect-dot" aria-hidden="true" />
+              Reconnecting — sending is paused until the connection is back.
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {accessDenied && (
           <div className="access-banner" role="alert">
@@ -428,6 +453,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
 
         <Composer
           value={input}
+          offline={!connected}
           onChange={(e) => handleTyping(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           onSend={send}
