@@ -49,8 +49,8 @@ export function createApp() {
     message: { error: 'Too many attempts — please wait a few minutes and try again.' }
   });
 
-  // NOTE: using in-memory messageStore for MVP (see socket.js:10).
-  // Add MongoDB in Week 2 via server/models/Message.js reference.
+  // Messages persist to MongoDB when connected; the in-memory store doubles
+  // as a hot cache and as the no-database fallback (see socket.js).
 
   app.get('/', (req, res) => {
     res.json({ status: 'ok', message: 'GitChat server running' });
