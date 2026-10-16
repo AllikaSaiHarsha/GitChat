@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+
+# Local env files hold real secrets — only the .example templates are committed
+.env
+.env.local
+.env.*.local
+
+# Logs & OS junk
+*.log
+.DS_Store
+Thumbs.db
