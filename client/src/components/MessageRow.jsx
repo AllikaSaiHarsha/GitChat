@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckIcon, CopyIcon, PersonAddIcon, SignOutIcon, SmileyIcon } from '@primer/octicons-react';
 import Avatar from './Avatar.jsx';
-import MarkdownBody from './MarkdownBody.jsx';
 import { copyText } from '../lib/clipboard.js';
+
+// The markdown + syntax-highlighting stack is the heaviest dependency in the
+// app, so it loads on demand the first time a message actually renders.
+const MarkdownBody = lazy(() => import('./MarkdownBody.jsx'));
 
 // Comment rows rise in with a light spring, like GitHub timeline items.
 const rowVariants = {
@@ -137,7 +140,9 @@ export default function MessageRow({ message, own, me, reactions = [], onReact, 
       </header>
 
       <div className="comment-body">
-        <MarkdownBody text={message.text} />
+        <Suspense fallback={<div className="md-plain">{message.text}</div>}>
+          <MarkdownBody text={message.text} />
+        </Suspense>
       </div>
 
       <AnimatePresence initial={false}>

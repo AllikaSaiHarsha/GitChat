@@ -2261,3 +2261,9 @@ button.ghost:hover {
   opacity: 0.6;
   cursor: default;
 }
+
+/* Plain-text fallback while the markdown renderer chunk loads on first use */
+.md-plain {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
