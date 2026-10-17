@@ -227,6 +227,14 @@ test('stats canonicalize the room name for both authz and aggregation', async ()
   assert.equal(res.data.room, 'general');
 });
 
+test('API responses carry the security headers', async () => {
+  const res = await fetch(`${base}/`);
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(res.headers.get('x-frame-options'), 'DENY');
+  assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+  assert.match(res.headers.get('content-security-policy') || '', /frame-ancestors 'none'/);
+});
+
 test('the api limiter throttles repeated stats polls', async () => {
   let blocked = 0;
   for (let i = 0; i < 70 && !blocked; i += 1) {

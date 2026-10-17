@@ -45,6 +45,16 @@ export function createApp() {
   app.use(cors({ origin: CLIENT_URL }));
   app.use(express.json());
 
+  // Security headers for API responses: the SPA's own CSP/frame policy is set
+  // at its serving layer (see client/vite.config.js); these bound the API.
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    next();
+  });
+
   // Brute-force guard for every password-checking endpoint (login, register,
   // room join). Only failed attempts consume the budget, so normal use never
   // trips it. `RATE_LIMIT_MAX` overrides the cap (used by the smoke tests).
