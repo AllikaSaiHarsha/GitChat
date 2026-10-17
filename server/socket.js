@@ -10,8 +10,10 @@ export const users = new Map(); // socket.id -> { username, room }
 
 // Reactions: room -> messageId -> Map(emoji -> Set(username)).
 // Per-room so events in one room can never read or mutate another room's
-// entries by message id. In-memory on purpose (lightweight social signals;
-// resets with the server); each room's slice is capped.
+// entries by message id. With MongoDB connected the message document's
+// reactions array is the source of truth (so reactions survive restarts) and
+// this store is hydrated from it; without MongoDB it is the only store.
+// Each room's slice is capped.
 export const reactionStore = new Map();
 export const ALLOWED_REACTIONS = ['👍', '👎', '😄', '🎉', '😕', '❤️', '🚀', '👀'];
 const REACTION_ROOM_CAP = 500;
@@ -21,6 +23,60 @@ export function summarizeReactions(room, messageId) {
   const byEmoji = reactionStore.get(room)?.get(messageId);
   if (!byEmoji) return [];
   return [...byEmoji.entries()].map(([emoji, names]) => ({ emoji, users: [...names] }));
+}
+
+// Replace one message's reactions in the memory store: used by the DB path
+// and by history loads so later toggles report the complete state.
+function setMemoryReactions(room, messageId, list) {
+  let roomReactions = reactionStore.get(room);
+  if (!roomReactions) {
+    roomReactions = new Map();
+    reactionStore.set(room, roomReactions);
+  }
+  const byEmoji = new Map();
+  for (const r of list || []) {
+    if (r && typeof r.emoji === 'string' && Array.isArray(r.users) && r.users.length) {
+      byEmoji.set(r.emoji, new Set(r.users));
+    }
+  }
+  if (!byEmoji.size) {
+    roomReactions.delete(messageId);
+    if (!roomReactions.size) reactionStore.delete(room);
+    return;
+  }
+  roomReactions.set(messageId, byEmoji);
+  if (roomReactions.size > REACTION_ROOM_CAP) {
+    roomReactions.delete(roomReactions.keys().next().value);
+  }
+}
+
+// The memory-only toggle (also the fallback for messages whose Mongo insert
+// is still in flight): flip the caller's membership in one emoji entry.
+function toggleReactionInMemory(room, messageId, emoji, username) {
+  let roomReactions = reactionStore.get(room);
+  if (!roomReactions) {
+    roomReactions = new Map();
+    reactionStore.set(room, roomReactions);
+  }
+  let byEmoji = roomReactions.get(messageId);
+  if (!byEmoji) {
+    byEmoji = new Map();
+    roomReactions.set(messageId, byEmoji);
+    // keep each room's map bounded on long-running servers
+    if (roomReactions.size > REACTION_ROOM_CAP) {
+      roomReactions.delete(roomReactions.keys().next().value);
+    }
+  }
+  let names = byEmoji.get(emoji);
+  if (!names) {
+    names = new Set();
+    byEmoji.set(emoji, names);
+  }
+  if (names.has(username)) names.delete(username);
+  else names.add(username);
+  if (!names.size) byEmoji.delete(emoji);
+  if (!byEmoji.size) roomReactions.delete(messageId);
+  if (!roomReactions.size) reactionStore.delete(room);
 }
 
 function getRoomMessages(room) {
@@ -41,6 +97,36 @@ async function messageExistsInRoom(room, messageId) {
   }
 }
 
+// Toggle one reaction on a persisted message. Element-level operators keep
+// concurrent toggles by different users from clobbering each other: remove
+// first (a no-op when the user isn't in the entry), otherwise add. Returns
+// the final reactions array, or null when the document doesn't exist yet
+// (the caller then falls back to the memory toggle).
+async function toggleReactionInDb(room, messageId, emoji, username) {
+  const removed = await Message.updateOne(
+    { mid: messageId, room, reactions: { $elemMatch: { emoji, users: username } } },
+    { $pull: { 'reactions.$.users': username } }
+  );
+  if (removed.modifiedCount) {
+    // Drop emoji entries that lost their last user.
+    await Message.updateOne({ mid: messageId, room }, { $pull: { reactions: { users: { $size: 0 } } } });
+  } else {
+    const added = await Message.updateOne(
+      { mid: messageId, room, 'reactions.emoji': emoji },
+      { $addToSet: { 'reactions.$.users': username } }
+    );
+    if (!added.matchedCount) {
+      await Message.updateOne(
+        { mid: messageId, room, 'reactions.emoji': { $ne: emoji } },
+        { $push: { reactions: { emoji, users: [username] } } }
+      );
+    }
+  }
+  const doc = await Message.findOne({ mid: messageId, room }).select('reactions').lean();
+  if (!doc) return null;
+  return doc.reactions || [];
+}
+
 // Last 100 messages, oldest first. MongoDB when connected, else memory.
 // Reactions are merged in at read time (they live in reactionStore).
 export async function loadHistory(room) {
@@ -54,6 +140,11 @@ export async function loadHistory(room) {
       text: d.text,
       createdAt: d.createdAt.toISOString()
     }));
+    // Hydrate the live store from the persisted reactions so toggles on
+    // messages outside the memory window start from the stored state.
+    for (const d of docs) {
+      setMemoryReactions(room, d.mid || d._id.toString(), d.reactions || []);
+    }
   } else {
     list = getRoomMessages(room);
   }
@@ -260,30 +351,16 @@ export function setupSocket(io) {
       // this binds reactions to a room, not just to a message id.
       if (!(await messageExistsInRoom(cleanRoom, messageId))) return;
 
-      let roomReactions = reactionStore.get(cleanRoom);
-      if (!roomReactions) {
-        roomReactions = new Map();
-        reactionStore.set(cleanRoom, roomReactions);
+      // With MongoDB connected the message document is the source of truth;
+      // mirror the result into the memory store so the emit below reads one
+      // consistent state. Messages whose insert is still in flight fall back
+      // to the memory toggle, same as when MongoDB is absent.
+      let persistedReactions = null;
+      if (isDbReady()) {
+        persistedReactions = await toggleReactionInDb(cleanRoom, messageId, emoji, username);
+        if (persistedReactions) setMemoryReactions(cleanRoom, messageId, persistedReactions);
       }
-      let byEmoji = roomReactions.get(messageId);
-      if (!byEmoji) {
-        byEmoji = new Map();
-        roomReactions.set(messageId, byEmoji);
-        // keep each room's map bounded on long-running servers
-        if (roomReactions.size > REACTION_ROOM_CAP) {
-          roomReactions.delete(roomReactions.keys().next().value);
-        }
-      }
-      let names = byEmoji.get(emoji);
-      if (!names) {
-        names = new Set();
-        byEmoji.set(emoji, names);
-      }
-      if (names.has(username)) names.delete(username);
-      else names.add(username);
-      if (!names.size) byEmoji.delete(emoji);
-      if (!byEmoji.size) roomReactions.delete(messageId);
-      if (!roomReactions.size) reactionStore.delete(cleanRoom);
+      if (!persistedReactions) toggleReactionInMemory(cleanRoom, messageId, emoji, username);
 
       io.to(cleanRoom).emit('message_reaction', {
         messageId,

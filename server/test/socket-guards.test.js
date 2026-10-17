@@ -203,6 +203,18 @@ test('reactions are bound to a message in the room the caller was authorized for
   assert.deepEqual(reactionEvents().at(-1)[2].reactions, []);
 });
 
+test('reactions are attached to the history sent when rejoining', async () => {
+  seed('general', { id: 'hist-msg-1' });
+  const s = fakeSocket('hist-tester');
+  io.connect(s);
+  await s.handlers.toggle_reaction({ room: 'general', messageId: 'hist-msg-1', emoji: '🚀' });
+  s.selfEmits.length = 0;
+  await s.handlers.join_room({ room: 'general' });
+  const history = s.selfEmits.filter(([ev]) => ev === 'message_history').at(-1)[1];
+  const entry = history.find((m) => m.id === 'hist-msg-1');
+  assert.deepEqual(entry.reactions, [{ emoji: '🚀', users: ['hist-tester'] }]);
+});
+
 test('socket token buckets cap sustained bursts', async () => {
   // send_message: a rapid burst is capped at MESSAGE_BURST=20 accepted sends.
   const sender = fakeSocket('bucket-sender');

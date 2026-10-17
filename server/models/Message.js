@@ -9,7 +9,10 @@ const messageSchema = new mongoose.Schema({
   room: { type: String, required: true },
   username: { type: String, required: true },
   text: { type: String, required: true, maxlength: 1000 },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  // [{ emoji, users: [username] }] — toggled via socket events; with MongoDB
+  // connected this array is the source of truth (memory store is hydrated).
+  reactions: { type: [{ _id: false, emoji: String, users: [String] }], default: [] }
 });
 
 // History and activity both filter by room and sort/range by createdAt:
