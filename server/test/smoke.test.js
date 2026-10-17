@@ -257,3 +257,26 @@ test('production fails closed without a usable JWT secret', async () => {
     process.env.JWT_SECRET = prev.secret;
   }
 });
+
+test('rejects tokens signed with a different HMAC algorithm', async () => {
+  const hs384 = jwt.sign({ username: U1 }, 'smoke-test-secret', { algorithm: 'HS384' });
+  assert.equal((await api(base, '/api/me', { token: hs384 })).status, 401);
+});
+
+test('caps passwords at 72 bytes during registration', async () => {
+  const res = await api(base, '/api/auth/register', {
+    method: 'POST',
+    body: { username: `longpw${tag}`, password: 'p'.repeat(73) }
+  });
+  assert.equal(res.status, 400);
+  assert.match(res.data.error || '', /72 bytes/);
+});
+
+test('joining a missing room is a plain 404', async () => {
+  const res = await api(base, '/api/rooms/join', {
+    method: 'POST',
+    token: token3,
+    body: { name: `nope${tag}`, password: PW }
+  });
+  assert.equal(res.status, 404);
+});

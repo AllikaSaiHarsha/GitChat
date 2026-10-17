@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { Room } from './models/Room.js';
 import { Message } from './models/Message.js';
 import { isDbReady } from './db.js';
+import { dummyCompare } from './auth.js';
 
 export const DEFAULT_ROOM = 'general';
 
@@ -200,6 +201,9 @@ export async function joinRoom(rawName, password, username) {
       await registerExisting(name, username);
       return { room: name };
     }
+    // Uniform timing: a missing room must cost the same as a wrong password,
+    // or the identical join_denied payload leaks room existence.
+    await dummyCompare(password);
     return { error: `No room named #${name} — check the spelling, or create it.`, status: 404 };
   }
 

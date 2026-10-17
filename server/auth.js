@@ -7,6 +7,10 @@ const JWT_EXPIRES = '7d';
 const DEV_SECRET = 'dev-secret-change-me';
 // Public placeholder from .env.example — using it verbatim is not a secret.
 const PLACEHOLDER_SECRET = 'change-this-to-a-long-random-string';
+// Fixed hash compared against when a password check cannot run for real
+// (unknown account, missing room) so those paths cost the same as a real
+// bcrypt compare and response timing does not leak existence.
+const DUMMY_HASH = '$2a$10$rH2UozY7DGpzT8cFFjR3ROQuQ2mlLyWYWhfbR7.pq/RUO.oGYZaVC';
 let warnedNoSecret = false;
 
 // Read lazily: auth.js loads before dotenv.config() runs in index.js,
@@ -33,6 +37,13 @@ export function checkAuthConfig() {
   getSecret(); // throws in production when unset/placeholder; warns in dev
 }
 
+// Uniform-cost password check for paths where no real hash exists (unknown
+// account, missing room). rooms.js reuses this for joins of missing rooms.
+// Errors (e.g. non-string input) are swallowed: the caller still responds 401/404.
+export async function dummyCompare(password) {
+  await bcrypt.compare(typeof password === 'string' ? password : '', DUMMY_HASH).catch(() => {});
+}
+
 // In-memory users: username -> { username, passwordHash, createdAt }
 // NOTE: wiped on server restart. Move to MongoDB for persistence.
 const users = new Map();
@@ -41,8 +52,13 @@ export function validateCredentials(username, password) {
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(username || '')) {
     return 'username must be 3-20 chars: letters, numbers, underscore';
   }
-  if (!password || password.length < 6) {
+  if (typeof password !== 'string' || password.length < 6) {
     return 'password must be at least 6 chars';
+  }
+  // bcrypt only uses the first 72 bytes: cap explicitly so long passwords are
+  // rejected instead of silently truncated.
+  if (Buffer.byteLength(password, 'utf8') > 72) {
+    return 'password must be at most 72 bytes';
   }
   return null;
 }
@@ -52,7 +68,7 @@ export function signToken(username) {
 }
 
 export function verifyToken(token) {
-  return jwt.verify(token, getSecret()); // throws on invalid/expired
+  return jwt.verify(token, getSecret(), { algorithms: ['HS256'] }); // throws on invalid/expired
 }
 
 export async function registerUser(username, password) {
@@ -79,11 +95,19 @@ export async function loginUser(username, password) {
   let hash = '';
   if (isDbReady()) {
     const u = await User.findOne({ username });
-    if (!u) throw { status: 401, message: 'invalid username or password' };
+    if (!u) {
+      // Same cost as the compare below: no account-existence timing oracle.
+      await dummyCompare(password);
+      throw { status: 401, message: 'invalid username or password' };
+    }
     hash = u.passwordHash;
   } else {
     const u = users.get(username);
-    if (!u) throw { status: 401, message: 'invalid username or password' };
+    if (!u) {
+      // Same cost as the compare below: no account-existence timing oracle.
+      await dummyCompare(password);
+      throw { status: 401, message: 'invalid username or password' };
+    }
     hash = u.passwordHash;
   }
   const ok = await bcrypt.compare(password || '', hash);
