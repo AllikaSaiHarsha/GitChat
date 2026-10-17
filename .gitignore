@@ -6,8 +6,8 @@ dist/
 
 # Local env files hold real secrets — only the .example templates are committed
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Logs & OS junk
 *.log
