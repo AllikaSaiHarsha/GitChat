@@ -42,6 +42,17 @@ export function createApp() {
   const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
   const app = express();
+
+  // Behind a deployment proxy (Cloudflare, Render, Fly.io, nginx, …) the rate
+  // limiters must key on the client IP in X-Forwarded-For — but only when
+  // such a proxy is actually in front, otherwise a client could spoof the
+  // header and sidestep the limits. Set TRUST_PROXY in the deployment
+  // environment: a hop count like "1", or an Express trust-proxy value.
+  if (process.env.TRUST_PROXY) {
+    const trustProxy = process.env.TRUST_PROXY;
+    app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
+  }
+
   app.use(cors({ origin: CLIENT_URL }));
   app.use(express.json());
 

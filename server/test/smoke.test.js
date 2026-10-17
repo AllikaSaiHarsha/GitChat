@@ -235,6 +235,16 @@ test('API responses carry the security headers', async () => {
   assert.match(res.headers.get('content-security-policy') || '', /frame-ancestors 'none'/);
 });
 
+test('TRUST_PROXY controls the rate-limit IP source', async () => {
+  assert.equal(createApp().app.get('trust proxy'), false); // default: directly exposed
+  process.env.TRUST_PROXY = '1';
+  try {
+    assert.equal(createApp().app.get('trust proxy'), 1);
+  } finally {
+    delete process.env.TRUST_PROXY;
+  }
+});
+
 test('the api limiter throttles repeated stats polls', async () => {
   let blocked = 0;
   for (let i = 0; i < 70 && !blocked; i += 1) {
