@@ -73,10 +73,22 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           // Split the biggest vendors so the app shell isn't one giant chunk.
-          manualChunks: {
-            'react-vendor': ['react', 'react-dom'],
-            'motion-vendor': ['framer-motion'],
-            'socket-vendor': ['socket.io-client']
+          // Vite 8 (Rolldown) requires the function form; the object form used
+          // before the upgrade is rejected ("Expected Function").
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+            if (/[\\/]node_modules[\\/](react|react-dom|scheduler|loose-envify)[\\/]/.test(id)) {
+              return 'react-vendor';
+            }
+            if (/[\\/]node_modules[\\/](framer-motion|motion-dom|motion-utils|tslib)[\\/]/.test(id)) {
+              return 'motion-vendor';
+            }
+            if (
+              /[\\/]node_modules[\\/](socket\.io-client|engine\.io-client|socket\.io-parser|engine\.io-parser|debug|ms|ws|xmlhttprequest-ssl)[\\/]/.test(id) ||
+              id.includes('node_modules/@socket.io/')
+            ) {
+              return 'socket-vendor';
+            }
           }
         }
       }
