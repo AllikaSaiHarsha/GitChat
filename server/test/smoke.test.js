@@ -221,6 +221,12 @@ test('the server stays healthy after malformed input', async () => {
   assert.equal(rooms.status, 200);
 });
 
+test('stats canonicalize the room name for both authz and aggregation', async () => {
+  const res = await api(base, '/api/stats/activity?room=GENeral%2F%2F', { token: token2 });
+  assert.equal(res.status, 200);
+  assert.equal(res.data.room, 'general');
+});
+
 test('the api limiter throttles repeated stats polls', async () => {
   let blocked = 0;
   for (let i = 0; i < 70 && !blocked; i += 1) {

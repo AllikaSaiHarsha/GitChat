@@ -4,6 +4,7 @@
 import { isDbReady } from './db.js';
 import { Message } from './models/Message.js';
 import { messageStore } from './socket.js';
+import { normalizeRoomName } from './rooms.js';
 
 const WINDOW_DAYS = 84;
 
@@ -14,7 +15,7 @@ function dayKey(value) {
 }
 
 export async function getActivity(room, username) {
-  const cleanRoom = (room || 'general').trim() || 'general';
+  const cleanRoom = normalizeRoomName(room) || 'general';
   const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   const days = {}; // room-wide counts per day

@@ -135,6 +135,31 @@ test('typing is membership-gated', async () => {
   assert.equal(socket.toEmits.length, 0);
 });
 
+test('socket handlers canonicalize room keys the same way join_room does', async () => {
+  const canon = fakeSocket('canon-tester');
+  io.connect(canon);
+
+  // A non-canonical variant of the open room must land in the canonical key.
+  const before = io.roomEmits.length;
+  await canon.handlers.send_message({ room: '  GENeral!! ', text: 'hello' });
+  const received = io.roomEmits.slice(before).filter(([, ev]) => ev === 'receive_message');
+  assert.equal(received.length, 1);
+  assert.equal(received[0][0], 'general');
+  assert.equal(received[0][2].room, 'general');
+
+  canon.toEmits.length = 0;
+  await canon.handlers.typing({ room: 'GENeral!!', isTyping: true });
+  assert.ok(canon.toEmits.some(([room, ev]) => room === 'general' && ev === 'user_typing'));
+
+  // Reactions accept the same variant against the canonical room.
+  seed('general', { id: 'canon-msg' });
+  const beforeReaction = io.roomEmits.length;
+  await canon.handlers.toggle_reaction({ room: 'General', messageId: 'canon-msg', emoji: '👍' });
+  const reactions = io.roomEmits.slice(beforeReaction).filter(([, ev]) => ev === 'message_reaction');
+  assert.equal(reactions.length, 1);
+  assert.equal(reactions[0][0], 'general');
+});
+
 test('reactions are bound to a message in the room the caller was authorized for', async () => {
   const reactionEvents = () => io.roomEmits.filter(([, ev]) => ev === 'message_reaction');
 

@@ -95,8 +95,11 @@ export function createApp() {
     if (rawRoom !== undefined && typeof rawRoom !== 'string') {
       return res.status(400).json({ error: 'invalid room' });
     }
-    const room = rawRoom || 'general';
-    if (!(await isMember(normalizeRoomName(room) || 'general', req.user.username))) {
+    // Canonicalize once: the same value authorizes the caller and drives the
+    // aggregation, so a raw selector can never disagree with the membership
+    // check (the old split could authorize #general but query "GENeral").
+    const room = normalizeRoomName(rawRoom) || 'general';
+    if (!(await isMember(room, req.user.username))) {
       return res.json({ room, windowDays: 84, days: {}, mineDays: {} });
     }
     try {

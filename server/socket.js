@@ -210,7 +210,7 @@ export function setupSocket(io) {
       const { room, text } = payload && typeof payload === 'object' ? payload : {};
       if (room !== undefined && typeof room !== 'string') return; // malformed payload
       if (typeof text !== 'string') return; // non-strings can't be messages
-      const cleanRoom = (room || 'general').trim() || 'general';
+      const cleanRoom = normalizeRoomName(room) || 'general';
       const cleanText = text.trim();
       if (!cleanText) return;
       // Rate limit before the membership lookup: bounded sends per user.
@@ -238,7 +238,7 @@ export function setupSocket(io) {
       const { room, isTyping } = payload && typeof payload === 'object' ? payload : {};
       if (room !== undefined && typeof room !== 'string') return; // malformed payload
       const username = socket.data.username;
-      const cleanRoom = (room || 'general').trim() || 'general';
+      const cleanRoom = normalizeRoomName(room) || 'general';
       if (!chatter()) return; // per-connection chatter cap
       // Same membership gate as send_message: typing must never broadcast
       // into rooms the caller isn't a member of.
@@ -250,7 +250,7 @@ export function setupSocket(io) {
     socket.on('toggle_reaction', safeHandler(async (payload) => {
       const { room, messageId, emoji } = payload && typeof payload === 'object' ? payload : {};
       if (room !== undefined && typeof room !== 'string') return; // malformed payload
-      const cleanRoom = (room || 'general').trim() || 'general';
+      const cleanRoom = normalizeRoomName(room) || 'general';
       const username = socket.data.username;
       if (!username || typeof messageId !== 'string' || messageId.length > 64) return;
       if (!ALLOWED_REACTIONS.includes(emoji)) return;
