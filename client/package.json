@@ -14,7 +14,7 @@
   "dependencies": {
     "@primer/octicons-react": "^19.40.0",
     "framer-motion": "^14.3.0",
-    "react": "^18.3.1",
+    "react": "^19.3.0",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.1.0",
     "rehype-highlight": "^7.0.2",
