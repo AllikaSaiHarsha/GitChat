@@ -4,17 +4,33 @@ import { User } from './models/User.js';
 import { isDbReady } from './db.js';
 
 const JWT_EXPIRES = '7d';
+const DEV_SECRET = 'dev-secret-change-me';
+// Public placeholder from .env.example — using it verbatim is not a secret.
+const PLACEHOLDER_SECRET = 'change-this-to-a-long-random-string';
 let warnedNoSecret = false;
 
 // Read lazily: auth.js loads before dotenv.config() runs in index.js,
 // so reading at import time would never see .env values.
 function getSecret() {
   const s = process.env.JWT_SECRET;
-  if (!s && !warnedNoSecret) {
-    warnedNoSecret = true;
-    console.warn('[auth] JWT_SECRET not set - using insecure dev default. Set it in .env');
+  if (!s || s === PLACEHOLDER_SECRET) {
+    // Fail closed in production: a known fallback secret would let anyone
+    // forge a token for any account.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET must be set to a strong random value in production');
+    }
+    if (!warnedNoSecret) {
+      warnedNoSecret = true;
+      console.warn('[auth] JWT_SECRET not set - using insecure dev default. Set it in .env');
+    }
+    return DEV_SECRET;
   }
-  return s || 'dev-secret-change-me';
+  return s;
+}
+
+// Startup guard for index.js: production must not boot without a real secret.
+export function checkAuthConfig() {
+  getSecret(); // throws in production when unset/placeholder; warns in dev
 }
 
 // In-memory users: username -> { username, passwordHash, createdAt }

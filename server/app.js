@@ -18,6 +18,14 @@ import {
   removeMember
 } from './rooms.js';
 
+// Express 4 does not forward rejected promises from async handlers, so one
+// unexpected rejection would reach the runtime's default handler and kill the
+// shared REST + socket process. Every awaited route is wrapped so failures
+// reach the JSON error middleware near the bottom of createApp().
+const asyncRoute = (handler) => (req, res, next) => {
+  Promise.resolve(handler(req, res, next)).catch(next);
+};
+
 // Member roster for a room (visible to its members; creator flagged as admin).
 async function memberPayload(name) {
   const { members, createdBy } = await roomMembers(name);
@@ -56,7 +64,7 @@ export function createApp() {
     res.json({ status: 'ok', message: 'GitChat server running' });
   });
 
-  app.get('/api/messages/:room', requireAuth, async (req, res) => {
+  app.get('/api/messages/:room', requireAuth, asyncRoute(async (req, res) => {
     const room = normalizeRoomName(req.params.room) || 'general';
     if (!(await isMember(room, req.user.username))) {
       return res.status(403).json({ error: 'not a member of this room' });
@@ -66,11 +74,17 @@ export function createApp() {
     } catch {
       res.json(messageStore.get(room) || []);
     }
-  });
+  }));
 
   // Per-day activity counts for the heatmap in the "Catch me up" panel.
-  app.get('/api/stats/activity', requireAuth, async (req, res) => {
-    const room = req.query.room || 'general';
+  app.get('/api/stats/activity', requireAuth, asyncRoute(async (req, res) => {
+    // Query strings can repeat (?room=a&room=b) or nest (?room[x]=y) — the
+    // parser then hands back an array/object, which TypeErrors deeper down.
+    const rawRoom = req.query.room;
+    if (rawRoom !== undefined && typeof rawRoom !== 'string') {
+      return res.status(400).json({ error: 'invalid room' });
+    }
+    const room = rawRoom || 'general';
     if (!(await isMember(normalizeRoomName(room) || 'general', req.user.username))) {
       return res.json({ room, windowDays: 84, days: {}, mineDays: {} });
     }
@@ -79,68 +93,83 @@ export function createApp() {
     } catch {
       res.json({ room, windowDays: 84, days: {}, mineDays: {} });
     }
-  });
+  }));
 
-  app.post('/api/auth/register', passwordLimiter, async (req, res) => {
+  app.post('/api/auth/register', passwordLimiter, asyncRoute(async (req, res) => {
     try {
       const { username, password } = req.body || {};
       res.status(201).json(await registerUser(username, password));
     } catch (e) {
       res.status(e.status || 500).json({ error: e.message || 'register failed' });
     }
-  });
+  }));
 
-  app.post('/api/auth/login', passwordLimiter, async (req, res) => {
+  app.post('/api/auth/login', passwordLimiter, asyncRoute(async (req, res) => {
     try {
       const { username, password } = req.body || {};
       res.json(await loginUser(username, password));
     } catch (e) {
       res.status(e.status || 500).json({ error: e.message || 'login failed' });
     }
-  });
+  }));
 
   app.get('/api/me', requireAuth, (req, res) => {
     res.json({ username: req.user.username });
   });
 
   // Rooms: you only ever see the ones you're a member of (#general is everyone's).
-  app.get('/api/rooms', requireAuth, async (req, res) => {
+  app.get('/api/rooms', requireAuth, asyncRoute(async (req, res) => {
     try {
       res.json({ rooms: await listRoomsFor(req.user.username) });
     } catch {
       res.json({ rooms: [{ name: 'general', locked: false }] });
     }
-  });
+  }));
 
   // Create a room: a password is required and is what gates the first join.
-  app.post('/api/rooms/create', requireAuth, async (req, res) => {
+  app.post('/api/rooms/create', requireAuth, asyncRoute(async (req, res) => {
     const { name, password } = req.body || {};
+    // Non-string fields crash normalization/hashing deeper down (TypeError).
+    if ((name !== undefined && typeof name !== 'string') ||
+        (password !== undefined && typeof password !== 'string')) {
+      return res.status(400).json({ error: 'invalid room details' });
+    }
     const result = await createRoom(name, password, req.user.username);
     if (result.error) return res.status(result.status || 400).json({ error: result.error });
     res.status(201).json({ room: result.room, rooms: await listRoomsFor(req.user.username) });
-  });
+  }));
 
   // Join a room: password checked once, then you're a member for good.
-  app.post('/api/rooms/join', passwordLimiter, requireAuth, async (req, res) => {
+  app.post('/api/rooms/join', passwordLimiter, requireAuth, asyncRoute(async (req, res) => {
     const { name, password } = req.body || {};
+    // Non-string fields crash normalization/hashing deeper down (TypeError).
+    if ((name !== undefined && typeof name !== 'string') ||
+        (password !== undefined && typeof password !== 'string')) {
+      return res.status(400).json({ error: 'invalid room details' });
+    }
     const result = await joinRoom(name, password, req.user.username);
     if (result.error) return res.status(result.status || 400).json({ error: result.error });
     res.json({ room: result.room, rooms: await listRoomsFor(req.user.username) });
-  });
+  }));
 
-  app.get('/api/rooms/:name/members', requireAuth, async (req, res) => {
+  app.get('/api/rooms/:name/members', requireAuth, asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.params.name);
     if (!name) return res.status(400).json({ error: 'enter a room name' });
     if (!(await isMember(name, req.user.username))) {
       return res.status(403).json({ error: 'not a member of this room' });
     }
     res.json(await memberPayload(name));
-  });
+  }));
 
   // Admin only: add a member by username (no password needed — the admin vouches).
-  app.post('/api/rooms/:name/members', requireAuth, async (req, res) => {
+  app.post('/api/rooms/:name/members', requireAuth, asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.params.name);
-    const target = (req.body?.username || '').trim();
+    const rawTarget = req.body?.username;
+    // A non-string username would TypeError on .trim() before any gate runs.
+    if (rawTarget !== undefined && typeof rawTarget !== 'string') {
+      return res.status(400).json({ error: 'invalid username' });
+    }
+    const target = (rawTarget || '').trim();
     if (!(await isAdmin(name, req.user.username))) {
       return res.status(403).json({ error: 'only the room admin can manage members' });
     }
@@ -153,10 +182,10 @@ export function createApp() {
     }
     await addMember(name, target);
     res.json(await memberPayload(name));
-  });
+  }));
 
   // Admin only: remove a member (the admin themselves can't be removed).
-  app.delete('/api/rooms/:name/members/:username', requireAuth, async (req, res) => {
+  app.delete('/api/rooms/:name/members/:username', requireAuth, asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.params.name);
     const target = req.params.username;
     if (!(await isAdmin(name, req.user.username))) {
@@ -170,11 +199,11 @@ export function createApp() {
     // If they're sitting in the room right now, pull them out immediately.
     evictFromRoom(io, name, target);
     res.json(await memberPayload(name));
-  });
+  }));
 
   // Leave a room on your own: membership is dropped (the password is needed
   // again to rejoin). Admins can't leave their own room, and #general is home.
-  app.post('/api/rooms/:name/leave', requireAuth, async (req, res) => {
+  app.post('/api/rooms/:name/leave', requireAuth, asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.params.name);
     const username = req.user.username;
     if (!name || name === 'general') {
@@ -189,6 +218,17 @@ export function createApp() {
     await removeMember(name, username);
     evictFromRoom(io, name, username, 'left');
     res.json({ room: name, rooms: await listRoomsFor(username) });
+  }));
+
+  // Error middleware: anything asyncRoute forwards (plus body-parser's
+  // malformed-JSON error) becomes a JSON response — never a dead process.
+  app.use((err, req, res, next) => {
+    if (res.headersSent) return next(err);
+    if (err?.type === 'entity.parse.failed') {
+      return res.status(400).json({ error: 'invalid JSON body' });
+    }
+    console.error('[api]', req.method, req.originalUrl, '-', err?.stack || err);
+    res.status(500).json({ error: 'internal server error' });
   });
 
   const server = http.createServer(app);

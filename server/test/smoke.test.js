@@ -189,3 +189,56 @@ test('repeated password failures hit the rate limit', async () => {
   assert.equal(blocked.status, 429);
   assert.match(blocked.data.error || '', /too many attempts/i);
 });
+
+test('malformed request payloads get 400s instead of crashes', async () => {
+  const create = await api(base, '/api/rooms/create', { method: 'POST', token: token1, body: { name: { nested: true }, password: PW } });
+  assert.equal(create.status, 400);
+
+  const join = await api(base, '/api/rooms/join', { method: 'POST', token: token2, body: { name: [ROOM], password: PW } });
+  assert.equal(join.status, 400);
+
+  const stats = await api(base, '/api/stats/activity?room[x]=y', { token: token2 });
+  assert.equal(stats.status, 400);
+
+  const members = await api(base, `/api/rooms/${ROOM}/members`, { method: 'POST', token: token1, body: { username: 42 } });
+  assert.equal(members.status, 400);
+});
+
+test('malformed JSON is a clean 400', async () => {
+  const res = await fetch(`${base}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{not json'
+  });
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), { error: 'invalid JSON body' });
+});
+
+test('the server stays healthy after malformed input', async () => {
+  const health = await api(base, '/');
+  assert.equal(health.status, 200);
+  const rooms = await api(base, '/api/rooms', { token: token1 });
+  assert.equal(rooms.status, 200);
+});
+
+test('production fails closed without a usable JWT secret', async () => {
+  const prev = { nodeEnv: process.env.NODE_ENV, secret: process.env.JWT_SECRET };
+  process.env.NODE_ENV = 'production';
+  delete process.env.JWT_SECRET;
+  try {
+    // Signing throws → the route reports 500 instead of issuing a forgeable token.
+    const login = await api(base, '/api/auth/login', { method: 'POST', body: { username: U1, password: PW } });
+    assert.equal(login.status, 500);
+    // Verification fails closed too.
+    const me = await api(base, '/api/me', { token: token1 });
+    assert.equal(me.status, 401);
+
+    // The public .env.example placeholder is not a secret either.
+    process.env.JWT_SECRET = 'change-this-to-a-long-random-string';
+    assert.equal((await api(base, '/api/me', { token: token1 })).status, 401);
+  } finally {
+    if (prev.nodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = prev.nodeEnv;
+    process.env.JWT_SECRET = prev.secret;
+  }
+});
