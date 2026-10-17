@@ -17,24 +17,37 @@ export async function getActivity(room, username) {
   const cleanRoom = (room || 'general').trim() || 'general';
   const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-  let rows;
-  if (isDbReady()) {
-    rows = await Message.find({ room: cleanRoom, createdAt: { $gte: since } })
-      .select('username createdAt')
-      .lean();
-  } else {
-    rows = (messageStore.get(cleanRoom) || []).filter(
-      (m) => new Date(m.createdAt).getTime() >= since.getTime()
-    );
-  }
-
   const days = {}; // room-wide counts per day
   const mineDays = {}; // this user's counts per day
-  for (const m of rows) {
-    const key = dayKey(m.createdAt);
-    if (!key) continue;
-    days[key] = (days[key] || 0) + 1;
-    if (m.username === username) mineDays[key] = (mineDays[key] || 0) + 1;
+
+  if (isDbReady()) {
+    // Counted in MongoDB (uses the {room, createdAt} index) so the whole
+    // window isn't shipped to the app just to be reduced here.
+    const groups = await Message.aggregate([
+      { $match: { room: cleanRoom, createdAt: { $gte: since } } },
+      {
+        $group: {
+          _id: {
+            day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+            mine: { $eq: ['$username', username] }
+          },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    for (const g of groups) {
+      days[g._id.day] = (days[g._id.day] || 0) + g.count;
+      if (g._id.mine) mineDays[g._id.day] = (mineDays[g._id.day] || 0) + g.count;
+    }
+  } else {
+    const sinceMs = since.getTime();
+    for (const m of messageStore.get(cleanRoom) || []) {
+      if (new Date(m.createdAt).getTime() < sinceMs) continue;
+      const key = dayKey(m.createdAt);
+      if (!key) continue;
+      days[key] = (days[key] || 0) + 1;
+      if (m.username === username) mineDays[key] = (mineDays[key] || 0) + 1;
+    }
   }
 
   return { room: cleanRoom, windowDays: WINDOW_DAYS, days, mineDays };

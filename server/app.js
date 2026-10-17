@@ -57,6 +57,17 @@ export function createApp() {
     message: { error: 'Too many attempts — please wait a few minutes and try again.' }
   });
 
+  // General guard for the remaining API surface: room create, member
+  // management, and the data-heavy stats reads (the password limiter above
+  // only covers credential checks).
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests — slow down a little.' }
+  });
+
   // Messages persist to MongoDB when connected; the in-memory store doubles
   // as a hot cache and as the no-database fallback (see socket.js).
 
@@ -77,7 +88,7 @@ export function createApp() {
   }));
 
   // Per-day activity counts for the heatmap in the "Catch me up" panel.
-  app.get('/api/stats/activity', requireAuth, asyncRoute(async (req, res) => {
+  app.get('/api/stats/activity', apiLimiter, requireAuth, asyncRoute(async (req, res) => {
     // Query strings can repeat (?room=a&room=b) or nest (?room[x]=y) — the
     // parser then hands back an array/object, which TypeErrors deeper down.
     const rawRoom = req.query.room;
@@ -127,7 +138,7 @@ export function createApp() {
   }));
 
   // Create a room: a password is required and is what gates the first join.
-  app.post('/api/rooms/create', requireAuth, asyncRoute(async (req, res) => {
+  app.post('/api/rooms/create', apiLimiter, requireAuth, asyncRoute(async (req, res) => {
     const { name, password } = req.body || {};
     // Non-string fields crash normalization/hashing deeper down (TypeError).
     if ((name !== undefined && typeof name !== 'string') ||
@@ -152,7 +163,7 @@ export function createApp() {
     res.json({ room: result.room, rooms: await listRoomsFor(req.user.username) });
   }));
 
-  app.get('/api/rooms/:name/members', requireAuth, asyncRoute(async (req, res) => {
+  app.get('/api/rooms/:name/members', apiLimiter, requireAuth, asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.params.name);
     if (!name) return res.status(400).json({ error: 'enter a room name' });
     if (!(await isMember(name, req.user.username))) {
@@ -162,7 +173,7 @@ export function createApp() {
   }));
 
   // Admin only: add a member by username (no password needed — the admin vouches).
-  app.post('/api/rooms/:name/members', requireAuth, asyncRoute(async (req, res) => {
+  app.post('/api/rooms/:name/members', apiLimiter, requireAuth, asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.params.name);
     const rawTarget = req.body?.username;
     // A non-string username would TypeError on .trim() before any gate runs.
@@ -185,7 +196,7 @@ export function createApp() {
   }));
 
   // Admin only: remove a member (the admin themselves can't be removed).
-  app.delete('/api/rooms/:name/members/:username', requireAuth, asyncRoute(async (req, res) => {
+  app.delete('/api/rooms/:name/members/:username', apiLimiter, requireAuth, asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.params.name);
     const target = req.params.username;
     if (!(await isAdmin(name, req.user.username))) {

@@ -221,6 +221,15 @@ test('the server stays healthy after malformed input', async () => {
   assert.equal(rooms.status, 200);
 });
 
+test('the api limiter throttles repeated stats polls', async () => {
+  let blocked = 0;
+  for (let i = 0; i < 70 && !blocked; i += 1) {
+    const res = await api(base, '/api/stats/activity', { token: token2 });
+    if (res.status === 429) blocked = i + 1;
+  }
+  assert.ok(blocked > 0, 'expected a 429 within 70 stats requests');
+});
+
 test('production fails closed without a usable JWT secret', async () => {
   const prev = { nodeEnv: process.env.NODE_ENV, secret: process.env.JWT_SECRET };
   process.env.NODE_ENV = 'production';

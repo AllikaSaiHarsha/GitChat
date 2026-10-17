@@ -16,6 +16,7 @@ process.env.JWT_SECRET = 'socket-guard-test-secret';
 
 const { setupSocket, messageStore } = await import('../socket.js');
 const { createRoom } = await import('../rooms.js');
+const { getActivity } = await import('../stats.js');
 
 const ME = 'guard-tester';
 
@@ -175,4 +176,42 @@ test('reactions are bound to a message in the room the caller was authorized for
   // Toggling the same reaction again removes it and reports an empty list.
   await call('toggle_reaction', { room: 'guard-reactions', messageId: 'guard-msg-own', emoji: '🎉' });
   assert.deepEqual(reactionEvents().at(-1)[2].reactions, []);
+});
+
+test('socket token buckets cap sustained bursts', async () => {
+  // send_message: a rapid burst is capped at MESSAGE_BURST=20 accepted sends.
+  const sender = fakeSocket('bucket-sender');
+  io.connect(sender);
+  const beforeSends = io.roomEmits.length;
+  for (let i = 0; i < 25; i += 1) {
+    await sender.handlers.send_message({ room: 'general', text: `burst ${i}` });
+  }
+  const received = io.roomEmits.slice(beforeSends).filter(([, ev]) => ev === 'receive_message').length;
+  assert.equal(received, 20);
+
+  // join_room: a rapid burst is capped at JOIN_BURST=5 accepted joins per user.
+  const joiner = fakeSocket('bucket-joiner');
+  io.connect(joiner);
+  const beforeJoins = io.roomEmits.length;
+  for (let i = 0; i < 8; i += 1) {
+    await joiner.handlers.join_room({ room: 'general' });
+  }
+  const joined = io.roomEmits.slice(beforeJoins).filter(([, ev]) => ev === 'room_users').length;
+  assert.equal(joined, 5);
+});
+
+test('activity stats count the rolling window per day (memory path)', async () => {
+  const room = 'guard-activity';
+  const now = Date.now();
+  const today = new Date(now).toISOString().slice(0, 10);
+  seed(room, { id: 'act-1', username: ME, createdAt: new Date(now).toISOString() });
+  seed(room, { id: 'act-2', username: 'someone-else', createdAt: new Date(now).toISOString() });
+  seed(room, { id: 'act-3', username: ME, createdAt: new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString() });
+
+  const activity = await getActivity(room, ME);
+  assert.equal(activity.room, room);
+  assert.equal(activity.windowDays, 84);
+  // two recent messages today, one old message outside the window
+  assert.deepEqual(activity.days, { [today]: 2 });
+  assert.deepEqual(activity.mineDays, { [today]: 1 });
 });

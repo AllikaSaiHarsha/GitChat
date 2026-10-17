@@ -98,6 +98,31 @@ export function evictFromRoom(io, room, username, reason = 'removed') {
   }
 }
 
+// Abuse guards: small token buckets for client-emitted events. join_room can
+// trigger a bcrypt compare (password rooms) and send_message drives fan-out,
+// so both are keyed per user — shared across that user's tabs — while typing
+// and reaction chatter is keyed per connection. Bursts stay generous;
+// sustained rates are capped.
+const JOIN_BURST = 5;
+const JOIN_REFILL_PER_SEC = 0.2; // ≈ one join attempt every 5s sustained
+const MESSAGE_BURST = 20;
+const MESSAGE_REFILL_PER_SEC = 1;
+const CHATTER_BURST = 30;
+const CHATTER_REFILL_PER_SEC = 2;
+
+function tokenBucket(burst, refillPerSec) {
+  let tokens = burst;
+  let last = Date.now();
+  return () => {
+    const now = Date.now();
+    tokens = Math.min(burst, tokens + ((now - last) / 1000) * refillPerSec);
+    last = now;
+    if (tokens < 1) return false;
+    tokens -= 1;
+    return true;
+  };
+}
+
 export function setupSocket(io) {
   // Wraps a listener so a malformed payload or an unexpected error can never
   // escape it: payload shapes are validated per handler, and anything thrown
@@ -112,7 +137,21 @@ export function setupSocket(io) {
     }
   };
 
+  // Per-user buckets live for the life of the process (usernames come from
+  // verified JWTs, so the key space is the real user list).
+  const joinBuckets = new Map();
+  const messageBuckets = new Map();
+  const bucketFor = (map, key, burst, refillPerSec) => {
+    let bucket = map.get(key);
+    if (!bucket) {
+      bucket = tokenBucket(burst, refillPerSec);
+      map.set(key, bucket);
+    }
+    return bucket;
+  };
+
   io.on('connection', (socket) => {
+    const chatter = tokenBucket(CHATTER_BURST, CHATTER_REFILL_PER_SEC);
     // console.log('connected:', socket.id);
 
     socket.on('join_room', safeHandler(async (payload) => {
@@ -121,6 +160,9 @@ export function setupSocket(io) {
       const cleanRoom = normalizeRoomName(room) || 'general';
       const cleanName = socket.data.username; // from verified JWT, not client input
       if (!cleanName) return;
+      // Rate limit before join work: bounded attempts per user (bcrypt for
+      // password rooms is the expensive part).
+      if (!bucketFor(joinBuckets, cleanName, JOIN_BURST, JOIN_REFILL_PER_SEC)()) return;
 
       // Rooms are private to their members (see rooms.js). #general is open,
       // and legacy rooms (chat history but no Room doc yet) register on their
@@ -171,6 +213,8 @@ export function setupSocket(io) {
       const cleanRoom = (room || 'general').trim() || 'general';
       const cleanText = text.trim();
       if (!cleanText) return;
+      // Rate limit before the membership lookup: bounded sends per user.
+      if (!bucketFor(messageBuckets, socket.data.username, MESSAGE_BURST, MESSAGE_REFILL_PER_SEC)()) return;
       // Members only: keeps password-protected rooms private end to end.
       if (!(await isMember(cleanRoom, socket.data.username))) return;
 
@@ -195,6 +239,7 @@ export function setupSocket(io) {
       if (room !== undefined && typeof room !== 'string') return; // malformed payload
       const username = socket.data.username;
       const cleanRoom = (room || 'general').trim() || 'general';
+      if (!chatter()) return; // per-connection chatter cap
       // Same membership gate as send_message: typing must never broadcast
       // into rooms the caller isn't a member of.
       if (!username || !(await isMember(cleanRoom, username))) return;
@@ -209,6 +254,7 @@ export function setupSocket(io) {
       const username = socket.data.username;
       if (!username || typeof messageId !== 'string' || messageId.length > 64) return;
       if (!ALLOWED_REACTIONS.includes(emoji)) return;
+      if (!chatter()) return; // per-connection chatter cap
       if (!(await isMember(cleanRoom, username))) return;
       // The message must live in the room the caller was authorized for:
       // this binds reactions to a room, not just to a message id.
