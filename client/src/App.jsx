@@ -539,7 +539,7 @@ export default function App() {
                     Got a room name and its password? The password is only needed this once.
                   </p>
                   <label className="field">
-                    <span className="field-label">Room name</span>
+                    <span className="field-label">Room name to join</span>
                     <input
                       placeholder="e.g. design-review"
                       required
@@ -549,7 +549,7 @@ export default function App() {
                     />
                   </label>
                   <label className="field">
-                    <span className="field-label">Password</span>
+                    <span className="field-label">Room password to join</span>
                     <input
                       placeholder="Room password"
                       type="password"
@@ -579,7 +579,7 @@ export default function App() {
                     Start a new room and set the password others need to join it.
                   </p>
                   <label className="field">
-                    <span className="field-label">Room name</span>
+                    <span className="field-label">New room name</span>
                     <input
                       placeholder="e.g. weekend-hacks"
                       required
@@ -589,7 +589,7 @@ export default function App() {
                     />
                   </label>
                   <label className="field">
-                    <span className="field-label">Password</span>
+                    <span className="field-label">New room password</span>
                     <input
                       placeholder="At least 4 characters"
                       type="password"

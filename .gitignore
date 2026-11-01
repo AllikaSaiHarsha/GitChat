@@ -3,6 +3,8 @@ node_modules/
 
 # Builds
 dist/
+playwright-report/
+test-results/
 
 # Local env files hold real secrets — only the .example templates are committed
 .env

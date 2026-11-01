@@ -51,12 +51,25 @@ Register an account in the client and start talking. `#general` always exists.
 
 ## Tests
 
+Server/API tests:
+
 ```bash
 cd server
 npm test
 ```
 
 Boots app instances in-process on ephemeral ports with the in-memory store — no running server, database, or port juggling required. Covers auth, session/token errors, room memberships, password joins, admin member management, leave rules, and rate limiting.
+
+Client browser tests (desktop and mobile Chromium):
+
+```bash
+cd client
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+Playwright starts its own API and Vite servers on ports `5017` and `5174`, using isolated in-memory data. The tests cover registration, session resume, room creation, realtime messaging, and the command palette.
 
 ## Layout
 
