@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { ArrowLeftIcon, ArrowRightIcon, HashIcon, LockIcon, PlusIcon, SignOutIcon, SyncIcon, XCircleIcon, XIcon } from '@primer/octicons-react';
+import { Button } from './components/ui/button';
 import Chat from './components/Chat.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import LeaveRoomDialog from './components/LeaveRoomDialog.jsx';
@@ -429,9 +430,9 @@ export default function App() {
                 )}
               </AnimatePresence>
 
-              <motion.button whileTap={{ scale: 0.98 }} onClick={submitAuth}>
+              <Button onClick={submitAuth} className="w-full" size="lg">
                 {mode === 'login' ? 'Login' : 'Create account'}
-              </motion.button>
+              </Button>
             </div>
           </motion.div>
         )}
