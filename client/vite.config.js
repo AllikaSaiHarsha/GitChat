@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // Cloudflare Pages and Netlify take `_headers` straight from the build
 // output, so emit the same policy the preview server uses — with connect-src
@@ -56,7 +57,7 @@ export default defineConfig(({ mode }) => {
   };
 
   return {
-    plugins: [react(), staticHostHeaders(prodHeaders)],
+    plugins: [react(), tailwindcss(), staticHostHeaders(prodHeaders)],
     server: {
       port: 5173,
       headers: {
