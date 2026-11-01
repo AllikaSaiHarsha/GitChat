@@ -1,0 +1,30 @@
+/* ---------- App-wide frontend-design overlay ---------- */
+.app-frame { background: linear-gradient(160deg, #0b1120 0%, #111827 100%); }
+.chat-layout { background: rgba(255,255,255,0.015); border-left-color: rgba(255,255,255,0.08); border-right-color: rgba(255,255,255,0.08); }
+.chat-main { background: rgba(255,255,255,0.01); }
+.chat-header { background: rgba(255,255,255,0.04); border-bottom-color: rgba(255,255,255,0.08); }
+.room-name { color: #f3f4f6; }
+.room-hash { color: #94a3b8; }
+.messages { gap: 14px; }
+.comment { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
+.comment-own { border-left-color: #f59e0b; }
+.comment-header { border-bottom-color: rgba(255,255,255,0.08); }
+.comment-author { color: #f3f4f6; }
+.comment-time { color: #94a3b8; }
+.comment-body { color: #cbd5e1; font-size: 14.5px; line-height: 1.55; }
+.composer { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+.composer-input { color: #f3f4f6; }
+.composer-input::placeholder { color: #64748b; }
+.typing { color: #94a3b8; }
+.sidebar { background: rgba(255,255,255,0.03); border-right-color: rgba(255,255,255,0.08); }
+.tree-item { color: #e2e8f0; }
+.tree-item:hover { background: rgba(255,255,255,0.06); }
+.tree-item.active { background: rgba(245,158,11,0.15); color: #f3f4f6; border-color: rgba(245,158,11,0.3); }
+.header-brand { color: #f3f4f6; }
+.header-search { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
+.header-user-btn { color: #f3f4f6; }
+.user-menu { background: rgba(11,17,32,0.95); border-color: rgba(255,255,255,0.1); }
+.reaction-pill { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); color: #94a3b8; }
+.reaction-pill.mine { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); color: #f3f4f6; }
+.event-row { color: #94a3b8; }
+.particle-empty { color: #94a3b8; }
