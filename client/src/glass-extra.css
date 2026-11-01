@@ -1,8 +1,0 @@
-
-/* ---------- Liquid Glass approximation ---------- */
-.glass-card { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-.glass-sidebar { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); background: rgba(255,255,255,0.03); border-right-color: rgba(255,255,255,0.08); }
-.glass-header { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); background: rgba(255,255,255,0.06); border-bottom-color: rgba(255,255,255,0.08); }
-.glass-composer { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); }
-.glass-interactive { transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
-.glass-interactive:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); box-shadow: 0 4px 20px rgba(245,158,11,0.15); }
