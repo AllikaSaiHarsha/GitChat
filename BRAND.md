@@ -1,5 +1,7 @@
 # Purlway brand guide
 
+![Purlway woven conversation mark](client/public/purlway-mark.svg)
+
 ## Position
 
 Purlway is a calm, lightweight home for team conversations. The name pairs the

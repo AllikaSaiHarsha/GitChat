@@ -1,9 +1,30 @@
-# GitChat — Security Audit Report
+# Security Audit Archive
+
+> **Historical report, October 17, 2026.** This document records the GitChat name and source revision as they were at audit time. The product is now Purlway; the original wording is retained where it identifies the audited code or evidence. For current setup and brand guidance, see the [README](README.md) and [brand guide](BRAND.md).
 
 **Target:** `D:\realtime-chat-app` (GitHub: `AllikaSaiHarsha/GitChat`, private) · **Source ref:** commit `c9afa25` (main, in sync with origin, CI green)
 **Audit date:** 2026-10-17 · **Method:** Cloudflare `security-audit` skill, profile `quick` (bounded pass) · **Run id:** `gitchat-run-1`
 **Posture at audit time:** read-only — no application code, configuration, git state, or running process was modified; your running servers were not touched.
 **Post-audit update (2026-10-17):** you approved and applied the full remediation (P0–P3) and authorized bounded local validation of the six leads. All six were demonstrated by execution against `c9afa25` and are now **confirmed**; every fix in §9 is applied and pushed. See §11 for the commit map, validation evidence, and the owner-observable residue.
+
+---
+
+## Contents
+
+- [Executive summary](#1-executive-summary)
+- [Architecture and trust boundaries](#2-architecture-and-trust-boundaries)
+- [Scope and methodology](#3-scope-and-methodology-tools-used)
+- [Skill status and checks completed](#4-skill-status-and-checks-completed)
+- [Findings](#5-findings)
+- [Evidence and paths](#6-evidence-and-paths)
+- [Checks passed](#7-checks-passed-verified-controls)
+- [Failed or unverified checks](#8-failed-and-unverified-checks)
+- [Remediation plan](#9-remediation-plan-p0p3-applied-2026-10-17)
+- [Production-readiness verdict and limitations](#10-production-readiness-verdict-and-limitations)
+- [Remediation and lead-validation addendum](#11-addendum--remediation-applied-and-lead-validation-post-audit-2026-10-17)
+  - [Verification after the wave](#111-verification-after-the-wave)
+  - [Lead validation](#112-lead-validation-bounded-local-execution-owner-approved)
+  - [Owner-observable residue](#113-owner-observable-residue-the-only-open-items)
 
 ---
 
@@ -211,7 +232,7 @@ Severity labels are used **only** for confirmed records, per the audit skill's c
 
 ---
 
-## 8. Failed / unverified checks
+## 8. Failed and unverified checks
 
 - **Blocked by "no OS-enforced sandbox" (execution withheld):** every runtime-dependent step of the six leads — process-exit observation for §5.4/§5.6, token acceptance for §5.3, timing/starvation for §5.7, seeded cross-key read for §5.5, npm-install behavior for §5.8. Each has an exact bounded local plan and an owner-observable alternative (never send audit traffic to a deployment).
 - **Deferred (critic-accepted, not hunted in the quick profile):**

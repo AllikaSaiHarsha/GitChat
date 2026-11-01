@@ -1,8 +1,22 @@
-# Purlway
+<p align="center">
+  <img src="client/public/purlway-mark.svg" alt="Purlway woven conversation mark" width="72" />
+</p>
 
-Purlway keeps team conversations flowing through focused rooms, live presence, and lightweight collaboration tools.
+<h1 align="center">Purlway</h1>
+<p align="center"><em>Team chat, in flow.</em></p>
 
-Stack: **React (Vite)** + **Node/Express** + **Socket.IO** · JWT auth · MongoDB optional (in-memory fallback)
+Purlway is a realtime team chat app built around focused rooms, live presence, and lightweight collaboration.
+
+**Stack:** React and Vite · Node.js and Express · Socket.IO · JWT · optional MongoDB
+
+## Contents
+
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Checks](#checks)
+- [Project layout](#project-layout)
+- [Documentation](#documentation)
 
 ## Features
 
@@ -12,59 +26,73 @@ Stack: **React (Vite)** + **Node/Express** + **Socket.IO** · JWT auth · MongoD
 - **Leave a room** — members can walk out anytime (not `#general`; admins can't leave their own room). The password is required again to rejoin.
 - **Session resume** — only a real 401 signs you out; a restarting server just retries.
 - **Chat niceties** — presence, typing indicators, emoji reactions, markdown + syntax highlighting, a "new messages" divider, a catch-up panel with an activity heatmap, and a command palette (`Ctrl K`).
-- **Guards** — rate-limited auth/join endpoints, 7-day JWT expiry, CORS pinned to the client origin.
+- **Security** — rate-limited authentication and room-join endpoints, seven-day JWT expiry, and CORS pinned to the client origin.
 
 ## Brand
 
 Purlway pairs the purl stitch with a path that connects people. Its visual identity uses a woven conversation mark, warm copper, soft linen, and deep ink. The voice is clear, human, and calm. See [BRAND.md](BRAND.md) for the visual and writing guide.
 
-## Run locally
+## Quick start
 
-1. Server:
+Use Node.js 24 (see `.nvmrc`) and npm. Run each command group in its own terminal.
+
+### 1. Start the API
+
 ```bash
 cd server
+npm ci
 cp .env.example .env
-npm install
+# Edit .env and set JWT_SECRET to a strong random value.
 npm run dev
-# -> http://localhost:5000
 ```
 
-2. Client (new terminal):
+The API listens at `http://localhost:5000` by default. MongoDB is optional; without a reachable database, the app uses in-memory stores and data resets when the server restarts.
+
+### 2. Start the client
+
 ```bash
 cd client
-npm install
+npm ci
 npm run dev
-# -> http://localhost:5173
 ```
 
-Register an account in the client and start talking. `#general` always exists.
+Open `http://localhost:5173`, create an account, and join `#general`.
 
-## Environment
+## Configuration
 
-`server/.env`:
+Create `server/.env` from `server/.env.example` and set a private `JWT_SECRET` before exposing the API. Production refuses to start if the secret is missing or still set to the example placeholder. Development warns and uses an insecure fallback when no valid secret is set.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `PORT` | `5000` | |
-| `CLIENT_URL` | `http://localhost:5173` | CORS + Socket.IO origin |
-| `JWT_SECRET` | dev default (warns) | Set a long random string |
-| `MONGO_URI` | *(unset)* | When unset or unreachable, the server runs fully in-memory (data resets on restart) |
-| `RATE_LIMIT_MAX` | `20` | Failed login/register/join attempts per IP per 15 min |
+| `PORT` | `5000` | API port |
+| `CLIENT_URL` | `http://localhost:5173` | Allowed client origin for CORS and Socket.IO |
+| `JWT_SECRET` | Example placeholder | Set a long, random value; production requires it |
+| `MONGO_URI` | *(unset)* | Optional MongoDB connection; memory stores are used when unavailable |
+| `RATE_LIMIT_MAX` | `20` | Failed login, registration, and room-join attempts per IP per 15 minutes |
+| `TRUST_PROXY` | *(unset)* | Set to the trusted proxy hop count when running behind a proxy |
 
-`client/.env` (optional): `VITE_SERVER_URL` (default `http://localhost:5000`).
+Set `client/.env` only when the API uses a different address: `VITE_SERVER_URL` defaults to `http://localhost:5000`.
 
-## Tests
+## Checks
 
-Server/API tests:
+Run the API tests:
 
 ```bash
 cd server
 npm test
 ```
 
-Boots app instances in-process on ephemeral ports with the in-memory store — no running server, database, or port juggling required. Covers auth, session/token errors, room memberships, password joins, admin member management, leave rules, and rate limiting.
+The API suite starts isolated in-process servers with in-memory data. It covers authentication, sessions, room membership, password joins, member management, leave rules, rate limiting, and socket guards.
 
-Client browser tests (desktop and mobile Chromium):
+Build the client:
+
+```bash
+cd client
+npm ci
+npm run build
+```
+
+Optional browser checks use desktop and mobile Chromium:
 
 ```bash
 cd client
@@ -73,9 +101,9 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright starts its own API and Vite servers on ports `5017` and `5174`, using isolated in-memory data. The tests cover registration, session resume, room creation, realtime messaging, and the command palette.
+Playwright starts isolated API and Vite servers on ports `5017` and `5174`. The checks cover registration, session resume, room creation, realtime messaging, and the command palette.
 
-## Layout
+## Project layout
 
 ```
 server/
@@ -85,7 +113,7 @@ server/
   rooms.js        room store: memberships, passwords, admins
   socket.js       realtime: messages, presence, typing, reactions
   db.js           MongoDB connect (optional) + readiness
-  test/           smoke tests (node:test)
+  test/           API and socket tests (node:test)
 client/src/
   App.jsx         session resume + stage routing (auth / lobby / chat)
   components/     Chat, Sidebar, MessageRow, MarkdownBody, panels, dialogs
@@ -93,7 +121,9 @@ client/src/
   lib/            REST helpers
 ```
 
-## Notes
+## Documentation
 
-- Reactions are intentionally in-memory (they reset with the server).
-- Message history persists in MongoDB when it's connected; otherwise everything lives in memory and resets on restart.
+- [Brand guide](BRAND.md) — logo, colors, typography, and voice.
+- [Security audit](SECURITY_AUDIT.md) — historical audit findings and remediation record.
+
+Message history and reactions persist in MongoDB when connected. In memory-only mode, both reset when the server restarts.
