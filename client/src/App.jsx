@@ -361,13 +361,13 @@ export default function App() {
         {stage === 'auth' && (
           <motion.div
             key="auth"
-            className="container"
+            className="auth-hero"
             variants={pageVariants}
             initial="initial"
             animate="animate"
             exit="exit"
           >
-            <div className="card">
+            <div className="auth-card">
               <div className="brand">
                 <motion.span className="brand-badge" {...popIn}>
                   <GitChatLogo size={24} />
