@@ -49,7 +49,7 @@ export async function dummyCompare(password) {
 const users = new Map();
 
 export function validateCredentials(username, password) {
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username || '')) {
+  if (typeof username !== 'string' || !/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
     return 'username must be 3-20 chars: letters, numbers, underscore';
   }
   if (typeof password !== 'string' || password.length < 6) {
@@ -72,7 +72,7 @@ export function verifyToken(token) {
 }
 
 export async function registerUser(username, password) {
-  username = (username || '').trim();
+  username = typeof username === 'string' ? username.trim() : username;
   const err = validateCredentials(username, password);
   if (err) throw { status: 400, message: err };
   const passwordHash = await bcrypt.hash(password, 10);
@@ -91,7 +91,15 @@ export async function registerUser(username, password) {
 }
 
 export async function loginUser(username, password) {
-  username = (username || '').trim();
+  username = typeof username === 'string' ? username.trim() : '';
+  if (typeof password !== 'string') {
+    await dummyCompare('');
+    throw { status: 401, message: 'invalid username or password' };
+  }
+  if (Buffer.byteLength(password, 'utf8') > 72) {
+    await dummyCompare(password);
+    throw { status: 401, message: 'invalid username or password' };
+  }
   let hash = '';
   if (isDbReady()) {
     const u = await User.findOne({ username });

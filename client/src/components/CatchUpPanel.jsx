@@ -183,7 +183,8 @@ function buildWeeks(days) {
 // Consecutive active days ending today (or yesterday, if today is still quiet).
 function streakFrom(mineDays) {
   let streak = 0;
-  const d = new Date();
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const keyOf = (dt) => dt.toISOString().slice(0, 10);
   if (!mineDays[keyOf(d)]) d.setUTCDate(d.getUTCDate() - 1);
   while (mineDays[keyOf(d)]) {

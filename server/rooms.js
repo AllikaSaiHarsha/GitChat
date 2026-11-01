@@ -167,8 +167,11 @@ export async function createRoom(rawName, password, creator) {
   if (name === DEFAULT_ROOM) {
     return { error: '#general already exists — just join it.', status: 400 };
   }
-  if (!password || password.length < 4) {
+  if (typeof password !== 'string' || password.length < 4) {
     return { error: 'Room passwords need at least 4 characters.', status: 400 };
+  }
+  if (Buffer.byteLength(password, 'utf8') > 72) {
+    return { error: 'Room passwords must be at most 72 bytes.', status: 400 };
   }
   if (await getRoom(name)) {
     return { error: `#${name} already exists — try joining it instead.`, status: 409 };
@@ -211,8 +214,11 @@ export async function joinRoom(rawName, password, username) {
   if (room.members.includes(username)) return { room: name };
 
   if (room.passwordHash) {
-    const ok = await bcrypt.compare(password || '', room.passwordHash);
-    if (!ok) return { error: `Wrong password for #${name}.`, status: 401 };
+    const safePassword = typeof password === 'string' ? password : '';
+    const ok = await bcrypt.compare(safePassword, room.passwordHash);
+    if (!ok || Buffer.byteLength(safePassword, 'utf8') > 72) {
+      return { error: `Wrong password for #${name}.`, status: 401 };
+    }
   }
   await addMember(name, username);
   return { room: name };

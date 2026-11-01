@@ -132,7 +132,8 @@ async function toggleReactionInDb(room, messageId, emoji, username) {
 export async function loadHistory(room) {
   let list;
   if (isDbReady()) {
-    const docs = await Message.find({ room }).sort({ createdAt: 1 }).limit(100).lean();
+    // Read the most recent window, then reverse it for chronological display.
+    const docs = (await Message.find({ room }).sort({ createdAt: -1 }).limit(100).lean()).reverse();
     list = docs.map((d) => ({
       id: d.mid || d._id.toString(),
       room: d.room,
@@ -153,7 +154,13 @@ export async function loadHistory(room) {
 
 function persistMessage(msg) {
   if (!isDbReady()) return;
-  Message.create({ mid: msg.id, room: msg.room, username: msg.username, text: msg.text }).catch((e) =>
+  Message.create({
+    mid: msg.id,
+    room: msg.room,
+    username: msg.username,
+    text: msg.text,
+    createdAt: msg.createdAt
+  }).catch((e) =>
     console.log('[db] message save failed:', e.message)
   );
 }
@@ -261,6 +268,18 @@ export function setupSocket(io) {
       if (!(await isMember(cleanRoom, cleanName))) {
         const res = await joinRoom(cleanRoom, '', cleanName);
         if (res.error) {
+          // A denied room switch must not leave the socket subscribed to the
+          // previous room, where it could continue receiving private events.
+          const previous = users.get(socket.id);
+          if (previous) {
+            socket.leave(previous.room);
+            users.delete(socket.id);
+            const stillHere = [...users.values()].some(
+              (x) => x.room === previous.room && x.username === cleanName
+            );
+            if (!stillHere) io.to(previous.room).emit('user_left', { username: cleanName });
+            io.to(previous.room).emit('room_users', getRoomUsers(previous.room));
+          }
           socket.emit('join_denied', { room: cleanRoom });
           return;
         }

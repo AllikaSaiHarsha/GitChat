@@ -34,6 +34,9 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
   const [membersOpen, setMembersOpen] = useState(false);
   const [connected, setConnected] = useState(true); // false while the socket is down
   const bottomRef = useRef(null);
+  const messagesRef = useRef(null);
+  const stickToBottom = useRef(true);
+  const [showLatest, setShowLatest] = useState(false);
   const typingTimeout = useRef(null);
   const highlightTimer = useRef(null);
   const handledCatchUp = useRef(0);
@@ -44,6 +47,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
   useEffect(() => {
     const token = getToken();
     const socket = getSocket(token);
+    let alive = true;
     const lastSeenKey = 'chat:lastseen:' + room;
     let storedLastSeen = '';
     try {
@@ -58,6 +62,8 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
 
     // Fresh room (or user): reset everything, then recompute per-room state.
     setMessages([]);
+    stickToBottom.current = true;
+    setShowLatest(false);
     setReactionsById({});
     setDividerId(null);
     setHistoryReady(false);
@@ -68,20 +74,14 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     setAccessDenied(null);
     setMembersOpen(false);
 
-    // Join — and re-join after every reconnect. Without this, a reconnected
-    // socket sits in no room and silently stops receiving messages/reactions.
+    // Join — and re-join after every reconnect. Listeners are installed before
+    // connecting so a fast handshake cannot race the first history response.
     const joinNow = () => socket.emit('join_room', { room });
     const onConnect = () => {
       setConnected(true);
       joinNow();
     };
     const onDisconnect = () => setConnected(false);
-    if (socket.connected) joinNow();
-    else socket.connect();
-    setConnected(socket.connected);
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-
     // "New" divider: first message after your previous visit to this room.
     const placeDivider = (list) => {
       if (!prevVisitAt || !Array.isArray(list)) return;
@@ -103,11 +103,14 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     };
 
     // Skeletons never linger: show them until history lands (or 2.5s max)
-    const historyFallback = setTimeout(() => setHistoryReady(true), 2500);
+    const historyFallback = setTimeout(() => {
+      if (alive) setHistoryReady(true);
+    }, 2500);
 
     // Fallback: authed REST history in case socket history missed
     fetchHistory(room, token)
       .then((data) => {
+        if (!alive) return;
         if (Array.isArray(data) && data.length) {
           setMessages((prev) => (prev.length ? prev : data));
           collectReactions(data);
@@ -115,38 +118,55 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
         }
       })
       .catch((e) => {
+        if (!alive) return;
         if (e.message === 'unauthorized') onLogout?.();
       })
-      .finally(() => setHistoryReady(true));
+      .finally(() => {
+        if (alive) setHistoryReady(true);
+      });
 
     const onHistory = (msgs) => {
+      if (!alive) return;
       if (Array.isArray(msgs)) {
-        setMessages(msgs);
+        setMessages((previous) => {
+          const combined = new Map(msgs.map((message) => [message.id, message]));
+          for (const message of previous) {
+            if (!combined.has(message.id)) combined.set(message.id, message);
+          }
+          return [...combined.values()]
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .slice(-100);
+        });
         collectReactions(msgs);
         placeDivider(msgs);
       }
       setHistoryReady(true);
     };
-    const onReceive = (msg) => setMessages((prev) => [...prev.slice(-99), msg]);
+    const onReceive = (msg) => {
+      if (!alive || msg?.room !== room) return;
+      if (!stickToBottom.current) setShowLatest(true);
+      setMessages((prev) => [...prev.slice(-99), msg]);
+    };
+    const appendEvent = (text) => {
+      if (!stickToBottom.current) setShowLatest(true);
+      setMessages((prev) => [...prev.slice(-99), {
+        id: `sys-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        username: 'system',
+        text,
+        createdAt: new Date().toISOString()
+      }]);
+    };
     const onReaction = ({ messageId, reactions }) => {
-      if (!messageId) return;
+      if (!alive || !messageId) return;
       setReactionsById((prev) => ({ ...prev, [messageId]: Array.isArray(reactions) ? reactions : [] }));
     };
     const onUsers = (list) => setOnlineUsers(list || []);
-    const onJoined = ({ username: u }) =>
-      setMessages((prev) => [...prev.slice(-99), {
-        id: 'sys-' + Date.now(),
-        username: 'system',
-        text: `${u} joined`,
-        createdAt: new Date().toISOString()
-      }]);
-    const onLeft = ({ username: u }) =>
-      setMessages((prev) => [...prev.slice(-99), {
-        id: 'sys-' + Date.now(),
-        username: 'system',
-        text: `${u} left`,
-        createdAt: new Date().toISOString()
-      }]);
+    const onJoined = ({ username: u }) => {
+      if (alive && u) appendEvent(`${u} joined`);
+    };
+    const onLeft = ({ username: u }) => {
+      if (alive && u) appendEvent(`${u} left`);
+    };
     const onTyping = ({ username: u, isTyping }) => {
       setTypingUsers((prev) => {
         const next = new Set(prev);
@@ -176,9 +196,17 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     socket.on('connect_error', onConnectError);
     socket.on('join_denied', onDenied);
     socket.on('removed_from_room', onRemoved);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+
+    if (socket.connected) joinNow();
+    else socket.connect();
+    setConnected(socket.connected);
 
     return () => {
+      alive = false;
       clearTimeout(historyFallback);
+      clearTimeout(typingTimeout.current);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('message_history', onHistory);
@@ -202,8 +230,24 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
   }, [username, room]);
 
   useEffect(() => {
+    if (historyReady && stickToBottom.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, historyReady]);
+
+  const onMessagesScroll = () => {
+    const el = messagesRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+    stickToBottom.current = atBottom;
+    if (atBottom) setShowLatest(false);
+  };
+
+  const jumpToLatest = () => {
+    stickToBottom.current = true;
+    setShowLatest(false);
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  };
 
   useEffect(() => () => clearTimeout(highlightTimer.current), []);
 
@@ -252,6 +296,8 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     const text = input.trim();
     if (!text || !connected) return;
     getSocket().emit('send_message', { room, text });
+    stickToBottom.current = true;
+    setShowLatest(false);
     setInput('');
     getSocket().emit('typing', { room, isTyping: false });
   };
@@ -259,10 +305,11 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
   const handleTyping = (v) => {
     setInput(v);
     const socket = getSocket();
-    socket.emit('typing', { room, isTyping: true });
     clearTimeout(typingTimeout.current);
+    if (!socket.connected) return;
+    socket.emit('typing', { room, isTyping: true });
     typingTimeout.current = setTimeout(() => {
-      socket.emit('typing', { room, isTyping: false });
+      if (socket.connected) socket.emit('typing', { room, isTyping: false });
     }, 1000);
   };
 
@@ -364,7 +411,14 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
           </div>
         )}
 
-        <motion.div className="messages" variants={listVariants} initial="hidden" animate="show">
+        <motion.div
+          ref={messagesRef}
+          className="messages"
+          onScroll={onMessagesScroll}
+          variants={listVariants}
+          initial="hidden"
+          animate="show"
+        >
           {!historyReady && messages.length === 0 && (
             <div className="skeleton-wrap" aria-hidden="true">
               {[0, 1, 2].map((i) => (
@@ -423,6 +477,21 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
           ))}
           <div ref={bottomRef} />
         </motion.div>
+
+        <AnimatePresence>
+          {showLatest && (
+            <motion.button
+              type="button"
+              className="jump-latest"
+              onClick={jumpToLatest}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+            >
+              New messages · jump to latest
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         <div className="typing" aria-live="polite">
           <AnimatePresence mode="wait">
