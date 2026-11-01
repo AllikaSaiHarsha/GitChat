@@ -1,30 +1,31 @@
 /* GitChat visual system: quiet ink surfaces, cool message canvas, warm action accent. */
 :root {
   color-scheme: dark;
-  --bg: #0a1019;
-  --panel: #111b28;
-  --input-bg: #0b121d;
-  --border: #28394c;
-  --text: #e8f0fa;
-  --muted: #9aacc0;
-  --accent: #79b8ff;
-  --accent-hover: #a2ceff;
-  --green: #67d7a3;
-  --hover: #1a2939;
-  --accent-subtle: rgba(121, 184, 255, 0.13);
-  --focus-ring: 0 0 0 3px rgba(121, 184, 255, 0.28);
-  --primary: #d88455;
-  --primary-hover: #ed9a6a;
-  --link: #9acaff;
-  --radius: 10px;
+  --bg: #111b1c;
+  --panel: #1b2929;
+  --input-bg: #101819;
+  --border: #344442;
+  --text: #e8ece3;
+  --muted: #a2b4ae;
+  --accent: #a9c980;
+  --accent-hover: #c0d99a;
+  --green: #a9c980;
+  --hover: #293938;
+  --accent-subtle: rgba(169, 201, 128, 0.12);
+  --focus-ring: 0 0 0 3px rgba(169, 201, 128, 0.28);
+  --primary: #a9c980;
+  --primary-hover: #c0d99a;
+  --link: #c3dda0;
+  --radius: 8px;
+  --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
 
 body {
   background:
-    radial-gradient(ellipse at 82% -12%, rgba(57, 112, 164, 0.18), transparent 36rem),
+    radial-gradient(ellipse at 82% -12%, rgba(169, 201, 128, 0.1), transparent 36rem),
     var(--bg);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: Aptos, "Segoe UI", system-ui, sans-serif;
   font-size: 14px;
 }
 
@@ -75,9 +76,9 @@ textarea::placeholder {
   max-width: 400px;
   gap: 18px;
   padding: 30px;
-  border-color: rgba(153, 182, 214, 0.16);
+  border-color: rgba(162, 180, 174, 0.17);
   border-radius: 18px;
-  background: linear-gradient(145deg, rgba(22, 35, 51, 0.96), rgba(14, 23, 35, 0.98));
+  background: linear-gradient(145deg, rgba(31, 46, 43, 0.96), rgba(21, 33, 32, 0.98));
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 255, 255, 0.035);
 }
 
@@ -89,8 +90,8 @@ textarea::placeholder {
   width: 46px;
   height: 46px;
   border-radius: 14px;
-  background: linear-gradient(145deg, #75b9ff, #3978bc);
-  box-shadow: 0 8px 24px rgba(58, 129, 202, 0.27);
+  background: linear-gradient(145deg, #c0d99a, #819d5e);
+  box-shadow: 0 8px 24px rgba(169, 201, 128, 0.22);
 }
 
 .brand-badge.small {
@@ -106,7 +107,7 @@ textarea::placeholder {
 
 .card .sub,
 .sub {
-  color: #a4b5c9;
+  color: #b4c0b6;
   line-height: 1.6;
 }
 
@@ -179,7 +180,7 @@ textarea::placeholder {
 }
 
 .header-search:hover {
-  border-color: rgba(121, 184, 255, 0.52);
+  border-color: rgba(169, 201, 128, 0.52);
   background: rgba(22, 38, 56, 0.96);
 }
 
@@ -228,9 +229,10 @@ textarea::placeholder {
 
 .sidebar-label {
   padding: 8px 10px;
-  color: #9aacc0;
-  font-size: 10px;
-  letter-spacing: 0.7px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .tree-item,
@@ -247,7 +249,7 @@ textarea::placeholder {
 
 .tree-btn.active .tree-icon,
 .tree-btn.active .tree-name {
-  color: #d7eaff;
+  color: #edf4e2;
 }
 
 .presence-dot {
@@ -278,6 +280,8 @@ textarea::placeholder {
 
 .room-name {
   font-size: 15px;
+  font-family: var(--mono);
+  letter-spacing: -0.04em;
 }
 
 .count-badge {
@@ -327,13 +331,13 @@ textarea::placeholder {
 
 .comment-actions .msg-action:hover,
 .member-remove:hover {
-  background: rgba(121, 184, 255, 0.12);
-  color: #c7e2ff;
+  background: rgba(169, 201, 128, 0.12);
+  color: #dce9ca;
 }
 
 .event-row {
   min-height: 34px;
-  color: #a7b7c9;
+  color: #aebdb3;
 }
 
 .event-icon {
@@ -342,14 +346,14 @@ textarea::placeholder {
 }
 
 .new-divider {
-  color: #ffc08b;
+  color: #c8dda9;
   letter-spacing: 0.2px;
   text-transform: none;
 }
 
 .new-divider::before,
 .new-divider::after {
-  background: rgba(216, 132, 85, 0.36);
+  background: rgba(169, 201, 128, 0.36);
 }
 
 .empty-state {
@@ -362,9 +366,9 @@ textarea::placeholder {
   width: 56px;
   height: 56px;
   border-radius: 18px;
-  color: #9acaff;
-  background: #142439;
-  border-color: rgba(121, 184, 255, 0.2);
+  color: #c0d99a;
+  background: #263536;
+  border-color: rgba(169, 201, 128, 0.2);
 }
 
 .empty-title {
@@ -382,16 +386,16 @@ textarea::placeholder {
   left: 50%;
   min-height: 36px;
   padding: 7px 14px;
-  border: 1px solid rgba(121, 184, 255, 0.38);
+  border: 1px solid rgba(169, 201, 128, 0.38);
   border-radius: 999px;
-  background: rgba(20, 39, 59, 0.96);
-  color: #d7eaff;
+  background: rgba(35, 52, 48, 0.97);
+  color: #e1edcf;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   translate: -50% 0;
 }
 
 .jump-latest:hover {
-  background: #203b58;
+  background: #344a40;
 }
 
 .typing {
@@ -546,9 +550,9 @@ textarea::placeholder {
 }
 
 .badge.accent {
-  color: #a9d1ff;
-  border-color: rgba(121, 184, 255, 0.34);
-  background: rgba(73, 132, 190, 0.12);
+  color: #dce9ca;
+  border-color: rgba(169, 201, 128, 0.34);
+  background: rgba(169, 201, 128, 0.1);
 }
 
 @media (max-width: 760px) {
@@ -636,4 +640,99 @@ textarea::placeholder {
   *::after {
     scroll-behavior: auto !important;
   }
+}
+
+/* A developer workbench palette with the conversation drawn as a branch log. */
+.chat-main {
+  background: linear-gradient(180deg, rgba(27, 41, 41, 0.38), rgba(17, 27, 28, 0.72));
+}
+
+.sidebar {
+  background: rgba(27, 41, 41, 0.9);
+  border-right-color: rgba(162, 180, 174, 0.18);
+}
+
+.presence-dot {
+  box-shadow: 0 0 10px rgba(169, 201, 128, 0.3);
+}
+
+.chat-header {
+  background: rgba(27, 41, 41, 0.72);
+  border-bottom-color: rgba(162, 180, 174, 0.18);
+}
+
+.tree-btn.active,
+.tree-item.active {
+  background: rgba(169, 201, 128, 0.11);
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+.count-badge {
+  color: #d5e7b7;
+  border-color: rgba(169, 201, 128, 0.27);
+  background: rgba(169, 201, 128, 0.08);
+}
+
+.messages {
+  gap: 8px;
+}
+
+.comment {
+  border: 0;
+  border-left: 1px solid rgba(169, 201, 128, 0.48);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 140ms ease;
+}
+
+.comment-own {
+  border-left: 1px solid var(--accent);
+  background: rgba(169, 201, 128, 0.035);
+}
+
+.comment::before {
+  position: absolute;
+  top: 18px;
+  left: -6px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  content: "";
+}
+
+.comment:hover {
+  background-color: rgba(169, 201, 128, 0.055);
+}
+
+.comment-header {
+  border-bottom: 0;
+  padding-top: 12px;
+}
+
+.comment-body {
+  padding-top: 4px;
+  padding-bottom: 16px;
+}
+
+.composer {
+  background: rgba(27, 41, 41, 0.94);
+  border-color: rgba(162, 180, 174, 0.23);
+}
+
+.composer:focus-within {
+  border-color: rgba(169, 201, 128, 0.7);
+  box-shadow: 0 0 0 3px rgba(169, 201, 128, 0.13), 0 8px 26px rgba(0, 0, 0, 0.17);
+}
+
+.catchup-divider {
+  color: var(--muted);
+}
+
+.reconnect-banner {
+  border-color: rgba(169, 201, 128, 0.3);
+  background: rgba(169, 201, 128, 0.08);
+  color: #d5e7b7;
 }
