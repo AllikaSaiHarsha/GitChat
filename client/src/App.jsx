@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { ArrowLeftIcon, ArrowRightIcon, HashIcon, LockIcon, PlusIcon, SignOutIcon, SyncIcon, XCircleIcon, XIcon } from '@primer/octicons-react';
+import { Button } from './components/ui/button';
 import Chat from './components/Chat.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import LeaveRoomDialog from './components/LeaveRoomDialog.jsx';
