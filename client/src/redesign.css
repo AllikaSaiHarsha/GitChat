@@ -552,6 +552,11 @@ textarea::placeholder {
 }
 
 @media (max-width: 760px) {
+  .sidebar {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
   .app-header-inner {
     height: 54px;
     padding: 0 12px;
