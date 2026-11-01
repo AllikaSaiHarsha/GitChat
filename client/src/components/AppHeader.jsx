@@ -54,7 +54,7 @@ export default function AppHeader({
   };
 
   return (
-    <header className="app-header">
+    <header className="app-header glass-header">
       <div className="app-header-inner">
         {stage === 'chat' && (
           <button

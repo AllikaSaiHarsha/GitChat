@@ -16,7 +16,7 @@ export default function Composer({ value, offline, onChange, onKeyDown, onSend }
   }, [value]);
 
   return (
-    <div className="composer">
+    <div className="composer glass-composer">
       <textarea
         ref={ref}
         id="composer-input"

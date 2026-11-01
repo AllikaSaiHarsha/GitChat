@@ -368,7 +368,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
           {!historyReady && messages.length === 0 && (
             <div className="skeleton-wrap" aria-hidden="true">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="comment skeleton" style={{ animationDelay: `${i * 150}ms` }}>
+                <div key={i} className="comment glass-card skeleton" style={{ animationDelay: `${i * 150}ms` }}>
                   <div className="skeleton-header">
                     <span className="skeleton-circle" />
                     <span className="skeleton-bar" style={{ width: 92 }} />

@@ -39,7 +39,7 @@ export default function Sidebar({ username, room, rooms, onlineUsers, onSelectRo
   };
 
   return (
-    <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
+    <aside className={collapsed ? 'sidebar collapsed glass-sidebar' : 'sidebar glass-sidebar'}>
       <nav className="sidebar-scroll">
         {adminRooms.length > 0 && (
           <section className="sidebar-section">
