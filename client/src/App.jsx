@@ -35,6 +35,9 @@ export default function App() {
   const [mode, setMode] = useState('login'); // login | register
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [joinBusy, setJoinBusy] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
   const [room, setRoom] = useState('general');
   const [error, setError] = useState('');
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -42,6 +45,8 @@ export default function App() {
 
   // Rooms this user is a member of (server truth — everyone is in #general).
   const [rooms, setRooms] = useState([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [roomsError, setRoomsError] = useState('');
   const [joinName, setJoinName] = useState('');
   const [joinPassword, setJoinPassword] = useState('');
   const [joinError, setJoinError] = useState('');
@@ -139,9 +144,20 @@ export default function App() {
   }, []);
 
   const refreshRooms = () => {
-    fetchRooms(getToken())
-      .then((list) => setRooms(list))
-      .catch(() => {});
+    const token = getToken();
+    setRoomsLoading(true);
+    return fetchRooms(token)
+      .then((list) => {
+        if (token !== getToken()) return;
+        setRooms(list);
+        setRoomsError('');
+      })
+      .catch((err) => {
+        if (token === getToken()) setRoomsError(err.message || 'Could not load rooms.');
+      })
+      .finally(() => {
+        if (token === getToken()) setRoomsLoading(false);
+      });
   };
 
   // Keep the room list fresh whenever the lobby or chat appears.
@@ -151,8 +167,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
-  const submitAuth = async () => {
+  const submitAuth = async (e) => {
+    e?.preventDefault();
+    if (authBusy) return;
     setError('');
+    setAuthBusy(true);
     try {
       const me = await (mode === 'login' ? login : register)(username.trim(), password);
       setUsername(me.username);
@@ -160,6 +179,8 @@ export default function App() {
       setStage('lobby');
     } catch (e) {
       setError(e.message);
+    } finally {
+      setAuthBusy(false);
     }
   };
 
@@ -169,6 +190,8 @@ export default function App() {
     setUsername('');
     setPassword('');
     setRooms([]);
+    setRoomsLoading(false);
+    setRoomsError('');
     setJoinName('');
     setJoinPassword('');
     setJoinError('');
@@ -189,30 +212,40 @@ export default function App() {
   // "Your rooms" and opens without it.
   const submitJoinRoom = async (e) => {
     e.preventDefault();
+    if (joinBusy) return;
     setJoinError('');
+    setJoinBusy(true);
     try {
       const data = await joinRoom(joinName, joinPassword, getToken());
       setRooms(data.rooms || []);
+      setRoomsError('');
       setJoinName('');
       setJoinPassword('');
       enterRoom(data.room);
     } catch (err) {
       setJoinError(err.message);
+    } finally {
+      setJoinBusy(false);
     }
   };
 
   // Create: sets the password others need once to join.
   const submitCreateRoom = async (e) => {
     e.preventDefault();
+    if (createBusy) return;
     setCreateError('');
+    setCreateBusy(true);
     try {
       const data = await createRoom(createName, createPassword, getToken());
       setRooms(data.rooms || []);
+      setRoomsError('');
       setCreateName('');
       setCreatePassword('');
       enterRoom(data.room);
     } catch (err) {
       setCreateError(err.message);
+    } finally {
+      setCreateBusy(false);
     }
   };
 
@@ -367,7 +400,7 @@ export default function App() {
             animate="animate"
             exit="exit"
           >
-            <div className="card">
+            <form className="card auth-card" onSubmit={submitAuth}>
               <div className="brand">
                 <motion.span className="brand-badge" {...popIn}>
                   <GitChatLogo size={24} />
@@ -380,7 +413,7 @@ export default function App() {
                 <button
                   type="button"
                   className={mode === 'login' ? 'active' : ''}
-                  onClick={() => setMode('login')}
+                  onClick={() => { setMode('login'); setError(''); }}
                 >
                   {mode === 'login' && (
                     <motion.span layoutId="segment-thumb" className="segment-thumb" transition={springThumb} />
@@ -390,7 +423,7 @@ export default function App() {
                 <button
                   type="button"
                   className={mode === 'register' ? 'active' : ''}
-                  onClick={() => setMode('register')}
+                  onClick={() => { setMode('register'); setError(''); }}
                 >
                   {mode === 'register' && (
                     <motion.span layoutId="segment-thumb" className="segment-thumb" transition={springThumb} />
@@ -403,6 +436,12 @@ export default function App() {
                 <span className="field-label">Username</span>
                 <input
                   placeholder="3-20 characters"
+                  type="text"
+                  required
+                  minLength={3}
+                  maxLength={20}
+                  autoCapitalize="none"
+                  spellCheck="false"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
@@ -414,25 +453,27 @@ export default function App() {
                 <input
                   placeholder="Minimum 6 characters"
                   type="password"
+                  required
+                  minLength={6}
+                  maxLength={72}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') submitAuth(); }}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 />
               </label>
 
               <AnimatePresence>
                 {error && (
-                  <motion.p className="error-note" variants={errorVariants} initial="initial" animate="animate" exit="exit">
+                  <motion.p role="alert" className="error-note" variants={errorVariants} initial="initial" animate="animate" exit="exit">
                     {error}
                   </motion.p>
                 )}
               </AnimatePresence>
 
-              <motion.button whileTap={{ scale: 0.98 }} onClick={submitAuth}>
-                {mode === 'login' ? 'Login' : 'Create account'}
+              <motion.button whileTap={{ scale: 0.98 }} type="submit" disabled={authBusy}>
+                {authBusy ? 'Working…' : mode === 'login' ? 'Sign in' : 'Create account'}
               </motion.button>
-            </div>
+            </form>
           </motion.div>
         )}
 
@@ -465,17 +506,26 @@ export default function App() {
                 <div className="room-picker">
                   {adminRooms.length > 0 && (
                     <>
-                      <h3 className="sidebar-label">Created by you</h3>
+                      <h2 className="sidebar-label">Created by you</h2>
                       <div className="room-picker-list">{adminRooms.map(roomItem)}</div>
                       <p className="muted room-empty">
                         You're the admin here — open a room to manage its members.
                       </p>
                     </>
                   )}
-                  <h3 className="sidebar-label">Your rooms</h3>
+                  <h2 className="sidebar-label">Your rooms</h2>
+                  {roomsError && (
+                    <p className="error-note" role="alert">
+                      {roomsError}{' '}
+                      <button type="button" className="inline-retry" onClick={refreshRooms}>Try again</button>
+                    </p>
+                  )}
                   <div className="room-picker-list">
                     {memberRooms.map(roomItem)}
-                    {rooms.length === 0 && (
+                    {roomsLoading && rooms.length === 0 && (
+                      <p className="muted room-empty" role="status">Loading your rooms…</p>
+                    )}
+                    {!roomsLoading && !roomsError && rooms.length === 0 && (
                       <p className="muted room-empty">No rooms yet — create one below.</p>
                     )}
                   </div>
@@ -489,18 +539,22 @@ export default function App() {
                     Got a room name and its password? The password is only needed this once.
                   </p>
                   <label className="field">
-                    <span className="field-label">Room name</span>
+                    <span className="field-label">Room name to join</span>
                     <input
                       placeholder="e.g. design-review"
+                      required
+                      maxLength={30}
                       value={joinName}
                       onChange={(e) => setJoinName(e.target.value)}
                     />
                   </label>
                   <label className="field">
-                    <span className="field-label">Password</span>
+                    <span className="field-label">Room password to join</span>
                     <input
                       placeholder="Room password"
                       type="password"
+                      required
+                      maxLength={72}
                       value={joinPassword}
                       onChange={(e) => setJoinPassword(e.target.value)}
                       autoComplete="off"
@@ -508,13 +562,13 @@ export default function App() {
                   </label>
                   <AnimatePresence>
                     {joinError && (
-                      <motion.p className="error-note" variants={errorVariants} initial="initial" animate="animate" exit="exit">
+                        <motion.p role="alert" className="error-note" variants={errorVariants} initial="initial" animate="animate" exit="exit">
                         {joinError}
                       </motion.p>
                     )}
                   </AnimatePresence>
-                  <motion.button whileTap={{ scale: 0.98 }} type="submit">
-                    Join room
+                  <motion.button whileTap={{ scale: 0.98 }} type="submit" disabled={joinBusy}>
+                    {joinBusy ? 'Joining…' : 'Join room'}
                     <ArrowRightIcon size={16} />
                   </motion.button>
                 </form>
@@ -525,18 +579,23 @@ export default function App() {
                     Start a new room and set the password others need to join it.
                   </p>
                   <label className="field">
-                    <span className="field-label">Room name</span>
+                    <span className="field-label">New room name</span>
                     <input
                       placeholder="e.g. weekend-hacks"
+                      required
+                      maxLength={30}
                       value={createName}
                       onChange={(e) => setCreateName(e.target.value)}
                     />
                   </label>
                   <label className="field">
-                    <span className="field-label">Password</span>
+                    <span className="field-label">New room password</span>
                     <input
                       placeholder="At least 4 characters"
                       type="password"
+                      required
+                      minLength={4}
+                      maxLength={72}
                       value={createPassword}
                       onChange={(e) => setCreatePassword(e.target.value)}
                       autoComplete="off"
@@ -544,13 +603,13 @@ export default function App() {
                   </label>
                   <AnimatePresence>
                     {createError && (
-                      <motion.p className="error-note" variants={errorVariants} initial="initial" animate="animate" exit="exit">
+                        <motion.p role="alert" className="error-note" variants={errorVariants} initial="initial" animate="animate" exit="exit">
                         {createError}
                       </motion.p>
                     )}
                   </AnimatePresence>
-                  <motion.button whileTap={{ scale: 0.98 }} type="submit">
-                    Create room
+                  <motion.button whileTap={{ scale: 0.98 }} type="submit" disabled={createBusy}>
+                    {createBusy ? 'Creating…' : 'Create room'}
                     <PlusIcon size={16} />
                   </motion.button>
                 </form>

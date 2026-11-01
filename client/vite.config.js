@@ -25,7 +25,7 @@ function staticHostHeaders(headers) {
 // cannot be set from an index.html meta tag.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const serverUrl = env.VITE_SERVER_URL || 'http://localhost:5000';
+  const serverUrl = process.env.VITE_SERVER_URL || env.VITE_SERVER_URL || 'http://localhost:5000';
   const wsUrl = serverUrl.replace(/^http/, 'ws');
 
   const csp = (scriptSrc) =>

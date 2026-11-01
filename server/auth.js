@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from './models/User.js';
-import { isDbReady } from './db.js';
+import { isDbConfigured, isDbReady } from './db.js';
 
 const JWT_EXPIRES = '7d';
 const DEV_SECRET = 'dev-secret-change-me';
@@ -49,7 +49,7 @@ export async function dummyCompare(password) {
 const users = new Map();
 
 export function validateCredentials(username, password) {
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username || '')) {
+  if (typeof username !== 'string' || !/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
     return 'username must be 3-20 chars: letters, numbers, underscore';
   }
   if (typeof password !== 'string' || password.length < 6) {
@@ -72,7 +72,7 @@ export function verifyToken(token) {
 }
 
 export async function registerUser(username, password) {
-  username = (username || '').trim();
+  username = typeof username === 'string' ? username.trim() : username;
   const err = validateCredentials(username, password);
   if (err) throw { status: 400, message: err };
   const passwordHash = await bcrypt.hash(password, 10);
@@ -84,6 +84,9 @@ export async function registerUser(username, password) {
       throw e;
     }
   } else {
+    if (isDbConfigured()) {
+      throw { status: 503, message: 'Account storage is temporarily unavailable. Please try again.' };
+    }
     if (users.has(username)) throw { status: 409, message: 'username taken' };
     users.set(username, { username, passwordHash, createdAt: new Date().toISOString() });
   }
@@ -91,7 +94,15 @@ export async function registerUser(username, password) {
 }
 
 export async function loginUser(username, password) {
-  username = (username || '').trim();
+  username = typeof username === 'string' ? username.trim() : '';
+  if (typeof password !== 'string') {
+    await dummyCompare('');
+    throw { status: 401, message: 'invalid username or password' };
+  }
+  if (Buffer.byteLength(password, 'utf8') > 72) {
+    await dummyCompare(password);
+    throw { status: 401, message: 'invalid username or password' };
+  }
   let hash = '';
   if (isDbReady()) {
     const u = await User.findOne({ username });
@@ -101,6 +112,10 @@ export async function loginUser(username, password) {
       throw { status: 401, message: 'invalid username or password' };
     }
     hash = u.passwordHash;
+  } else if (isDbConfigured()) {
+    // Never authenticate an in-memory account against a configured but
+    // unavailable database; the account may not exist in durable storage.
+    throw { status: 503, message: 'Account storage is temporarily unavailable. Please try again.' };
   } else {
     const u = users.get(username);
     if (!u) {
@@ -133,11 +148,10 @@ export function requireAuth(req, res, next) {
 export async function userExists(username) {
   if (!username) return false;
   if (isDbReady()) {
-    try {
-      return !!(await User.exists({ username }));
-    } catch {
-      /* fall through to memory */
-    }
+    return !!(await User.exists({ username }));
+  }
+  if (isDbConfigured()) {
+    throw { status: 503, message: 'Account storage is temporarily unavailable. Please try again.' };
   }
   return users.has(username);
 }

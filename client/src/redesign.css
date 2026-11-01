@@ -1,0 +1,819 @@
+/* GitChat visual system: quiet ink surfaces, cool message canvas, warm action accent. */
+:root {
+  color-scheme: dark;
+  --bg: #111b1c;
+  --panel: #1b2929;
+  --input-bg: #101819;
+  --border: #344442;
+  --text: #e8ece3;
+  --muted: #a2b4ae;
+  --accent: #a9c980;
+  --accent-hover: #c0d99a;
+  --green: #a9c980;
+  --hover: #293938;
+  --accent-subtle: rgba(169, 201, 128, 0.12);
+  --focus-ring: 0 0 0 3px rgba(169, 201, 128, 0.28);
+  --primary: #a9c980;
+  --primary-hover: #c0d99a;
+  --link: #c3dda0;
+  --radius: 8px;
+  --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 82% -12%, rgba(169, 201, 128, 0.1), transparent 36rem),
+    var(--bg);
+  color: var(--text);
+  font-family: Aptos, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  min-height: 36px;
+  border-radius: 8px;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease,
+    transform 150ms ease;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input,
+textarea {
+  min-height: 40px;
+  border-radius: 8px;
+  background: var(--input-bg);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #8396ac;
+  opacity: 1;
+}
+
+.container {
+  min-height: 100dvh;
+  padding: 24px;
+}
+
+.card {
+  max-width: 400px;
+  gap: 18px;
+  padding: 30px;
+  border-color: rgba(162, 180, 174, 0.17);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(31, 46, 43, 0.96), rgba(21, 33, 32, 0.98));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.brand {
+  gap: 12px;
+}
+
+.brand-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #c0d99a, #819d5e);
+  box-shadow: 0 8px 24px rgba(169, 201, 128, 0.22);
+}
+
+.brand-badge.small {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+.card h1 {
+  font-size: 24px;
+  letter-spacing: -0.6px;
+}
+
+.card .sub,
+.sub {
+  color: #b4c0b6;
+  line-height: 1.6;
+}
+
+.field {
+  gap: 7px;
+}
+
+.field-label {
+  color: #d8e4f1;
+  font-size: 13px;
+}
+
+.segmented {
+  border-radius: 10px;
+  background: rgba(4, 10, 17, 0.58);
+}
+
+.segmented button {
+  min-height: 34px;
+}
+
+.segment-thumb {
+  border-radius: 7px;
+  background: #24374b;
+  border-color: #3b5875;
+}
+
+.error-note {
+  border-color: rgba(255, 123, 114, 0.42);
+  border-radius: 8px;
+  background: rgba(248, 81, 73, 0.11);
+  color: #ffaaa3;
+}
+
+.app-frame {
+  min-height: 100dvh;
+  height: 100dvh;
+  background: transparent;
+}
+
+.app-header {
+  position: relative;
+  z-index: 20;
+  background: rgba(9, 16, 25, 0.84);
+  border-bottom-color: rgba(157, 188, 220, 0.14);
+  box-shadow: 0 8px 28px rgba(1, 7, 14, 0.16);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+}
+
+.app-header-inner {
+  max-width: 1440px;
+  height: 58px;
+  gap: 14px;
+  padding: 0 22px;
+}
+
+.header-brand {
+  font-size: 14px;
+  letter-spacing: -0.2px;
+}
+
+.header-search {
+  max-width: 380px;
+  min-height: 44px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  background: rgba(17, 28, 42, 0.86);
+  border-color: rgba(157, 188, 220, 0.17);
+}
+
+.header-search:hover {
+  border-color: rgba(169, 201, 128, 0.52);
+  background: rgba(22, 38, 56, 0.96);
+}
+
+.header-icon-btn,
+.header-user-btn {
+  min-height: 44px;
+}
+
+.user-menu,
+.palette,
+.catchup-panel,
+.dialog-card {
+  border-color: rgba(154, 185, 217, 0.22);
+  border-radius: 14px;
+  background: rgba(17, 27, 40, 0.97);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.52), inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.chat-layout {
+  max-width: 1440px;
+  border-color: rgba(157, 188, 220, 0.1);
+  background: rgba(10, 16, 25, 0.5);
+}
+
+.sidebar {
+  width: 280px;
+  background: rgba(14, 23, 34, 0.76);
+  border-right-color: rgba(157, 188, 220, 0.13);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.sidebar.collapsed {
+  width: 60px;
+}
+
+.sidebar-scroll {
+  padding: 14px 10px 18px;
+}
+
+.sidebar-section + .sidebar-section {
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(157, 188, 220, 0.1);
+}
+
+.sidebar-label {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tree-item,
+.tree-btn {
+  min-height: 38px;
+  border-radius: 8px;
+}
+
+.tree-btn.active,
+.tree-item.active {
+  background: rgba(121, 184, 255, 0.13);
+  box-shadow: inset 2px 0 #79b8ff;
+}
+
+.tree-btn.active .tree-icon,
+.tree-btn.active .tree-name {
+  color: #edf4e2;
+}
+
+.presence-dot {
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(103, 215, 163, 0.32);
+}
+
+.chat-main {
+  background: linear-gradient(180deg, rgba(14, 23, 35, 0.42), rgba(8, 14, 22, 0.7));
+}
+
+.glass-card {
+  background: rgba(20, 31, 45, 0.82);
+  border: 1px solid rgba(153, 182, 214, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.chat-header {
+  min-height: 64px;
+  gap: 12px;
+  padding: 12px 22px;
+  border-bottom-color: rgba(157, 188, 220, 0.13);
+  background: rgba(13, 22, 33, 0.52);
+}
+
+.room-name {
+  font-size: 15px;
+  font-family: var(--mono);
+  letter-spacing: -0.04em;
+}
+
+.count-badge {
+  line-height: 24px;
+  border-color: rgba(103, 215, 163, 0.22);
+  color: #a9e8ca;
+  background: rgba(38, 103, 76, 0.16);
+}
+
+.messages {
+  gap: 10px;
+  padding: 22px clamp(14px, 3vw, 38px);
+  scroll-padding-block: 20px;
+}
+
+.messages > * {
+  max-width: 900px;
+}
+
+.comment {
+  border-color: rgba(153, 182, 214, 0.13);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(20, 31, 45, 0.97), rgba(15, 25, 37, 0.96));
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.12);
+}
+
+.comment-own {
+  border-left: 3px solid #79b8ff;
+}
+
+.comment-header {
+  min-height: 48px;
+  padding: 8px 66px 8px 14px;
+  border-bottom-color: rgba(153, 182, 214, 0.1);
+}
+
+.comment-body {
+  padding: 12px 16px 14px;
+  line-height: 1.65;
+}
+
+.comment-actions .msg-action {
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 7px;
+}
+
+.comment-actions .msg-action:hover,
+.member-remove:hover {
+  background: rgba(169, 201, 128, 0.12);
+  color: #dce9ca;
+}
+
+.event-row {
+  min-height: 34px;
+  color: #aebdb3;
+}
+
+.event-icon {
+  background: #142131;
+  border-color: rgba(153, 182, 214, 0.18);
+}
+
+.new-divider {
+  color: #c8dda9;
+  letter-spacing: 0.2px;
+  text-transform: none;
+}
+
+.new-divider::before,
+.new-divider::after {
+  background: rgba(169, 201, 128, 0.36);
+}
+
+.empty-state {
+  max-width: 480px;
+  margin: auto;
+  padding: 48px 24px;
+}
+
+.empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  color: #c0d99a;
+  background: #263536;
+  border-color: rgba(169, 201, 128, 0.2);
+}
+
+.empty-title {
+  font-size: 18px;
+}
+
+.empty-text {
+  line-height: 1.65;
+}
+
+.jump-latest {
+  position: absolute;
+  z-index: 10;
+  bottom: 88px;
+  left: 50%;
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid rgba(169, 201, 128, 0.38);
+  border-radius: 999px;
+  background: rgba(35, 52, 48, 0.97);
+  color: #e1edcf;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  translate: -50% 0;
+}
+
+.jump-latest:hover {
+  background: #344a40;
+}
+
+.typing {
+  padding: 0 22px 8px;
+}
+
+.composer {
+  margin: 0 22px 20px;
+  border-color: rgba(153, 182, 214, 0.21);
+  border-radius: 12px;
+  background: rgba(13, 22, 33, 0.9);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.17);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.composer:focus-within {
+  border-color: rgba(121, 184, 255, 0.62);
+  box-shadow: 0 0 0 3px rgba(121, 184, 255, 0.13), 0 8px 26px rgba(0, 0, 0, 0.17);
+}
+
+.composer-input {
+  min-height: 56px;
+  padding: 13px 15px;
+}
+
+.composer-footer {
+  border-top-color: rgba(153, 182, 214, 0.12);
+}
+
+.composer-hint {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.char-count {
+  color: #74889f;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.composer-footer button {
+  min-height: 34px;
+}
+
+.reconnect-banner {
+  border-color: rgba(233, 180, 91, 0.38);
+  border-radius: 9px;
+  background: rgba(143, 99, 28, 0.16);
+  color: #f4c77c;
+}
+
+.access-banner {
+  border-radius: 9px;
+}
+
+.lobby {
+  width: min(100%, 960px);
+  padding: clamp(24px, 5vh, 52px) 20px 56px;
+  gap: 20px;
+}
+
+.lobby > .card {
+  max-width: none;
+}
+
+.lobby .brand {
+  padding: 4px 0 8px;
+}
+
+.lobby-columns {
+  gap: 20px;
+}
+
+.lobby-card {
+  min-width: 0;
+}
+
+.lobby-title {
+  font-size: 17px;
+  letter-spacing: -0.2px;
+}
+
+.room-picker-list {
+  gap: 8px;
+}
+
+.room-picker-item,
+.room-picker-leave {
+  min-height: 44px;
+  border-radius: 9px;
+  background: rgba(8, 15, 23, 0.55);
+}
+
+.room-picker-item:hover,
+.room-picker-leave:hover {
+  border-color: rgba(121, 184, 255, 0.48);
+}
+
+.room-picker-leave {
+  min-width: 40px;
+}
+
+.inline-retry {
+  min-height: 26px;
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-color: rgba(255, 170, 163, 0.36);
+  background: rgba(248, 81, 73, 0.16);
+  color: #ffd0cb;
+  font-size: 12px;
+}
+
+.palette-overlay,
+.dialog-overlay {
+  z-index: 100;
+  padding: max(10vh, 64px) 16px 20px;
+  background: rgba(2, 6, 11, 0.76);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.palette {
+  width: min(600px, 100%);
+}
+
+.palette-input-row {
+  padding: 14px 16px;
+}
+
+.palette-input-row input {
+  min-height: 36px;
+}
+
+.palette-item {
+  min-height: 44px;
+}
+
+.dialog-card {
+  margin-top: 4vh;
+}
+
+.heat-cell {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.badge {
+  border-color: rgba(153, 182, 214, 0.2);
+  color: #afc1d5;
+}
+
+.badge.accent {
+  color: #dce9ca;
+  border-color: rgba(169, 201, 128, 0.34);
+  background: rgba(169, 201, 128, 0.1);
+}
+
+@media (max-width: 760px) {
+  .sidebar {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .app-header-inner {
+    height: 54px;
+    padding: 0 12px;
+  }
+
+  .sidebar {
+    padding: 8px 10px;
+    background: rgba(14, 23, 34, 0.94);
+  }
+
+  .chat-header {
+    min-height: 56px;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+
+  .messages {
+    padding: 14px 10px;
+  }
+
+  .composer {
+    margin: 0 10px 10px;
+  }
+
+  .typing {
+    padding-inline: 10px;
+  }
+
+  .lobby {
+    padding: 20px 12px 36px;
+  }
+
+  .lobby-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card {
+    padding: 22px;
+  }
+
+  .dialog-overlay {
+    align-items: center;
+    padding: 16px;
+  }
+
+  .dialog-card {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .header-brand {
+    gap: 0;
+  }
+
+  .header-search {
+    padding-inline: 8px;
+  }
+
+  .chat-header .catchup-btn {
+    padding-inline: 7px;
+  }
+
+  .count-badge {
+    padding-inline: 6px;
+    font-size: 10px;
+  }
+
+  .comment-header {
+    padding-right: 58px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* A developer workbench palette with the conversation drawn as a branch log. */
+.chat-main {
+  background: linear-gradient(180deg, rgba(27, 41, 41, 0.38), rgba(17, 27, 28, 0.72));
+}
+
+.sidebar {
+  background: rgba(27, 41, 41, 0.9);
+  border-right-color: rgba(162, 180, 174, 0.18);
+}
+
+.presence-dot {
+  box-shadow: 0 0 10px rgba(169, 201, 128, 0.3);
+}
+
+.chat-header {
+  background: rgba(27, 41, 41, 0.72);
+  border-bottom-color: rgba(162, 180, 174, 0.18);
+}
+
+.tree-btn.active,
+.tree-item.active {
+  background: rgba(169, 201, 128, 0.11);
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+.count-badge {
+  color: #d5e7b7;
+  border-color: rgba(169, 201, 128, 0.27);
+  background: rgba(169, 201, 128, 0.08);
+}
+
+.messages {
+  gap: 8px;
+}
+
+.comment {
+  border: 0;
+  border-left: 1px solid rgba(169, 201, 128, 0.48);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 140ms ease;
+}
+
+.comment-own {
+  border-left: 1px solid var(--accent);
+  background: rgba(169, 201, 128, 0.035);
+}
+
+.comment::before {
+  position: absolute;
+  top: 18px;
+  left: -6px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  content: "";
+}
+
+.comment:hover {
+  background-color: rgba(169, 201, 128, 0.055);
+}
+
+.comment-header {
+  border-bottom: 0;
+  padding-top: 12px;
+}
+
+.comment-body {
+  padding-top: 4px;
+  padding-bottom: 16px;
+}
+
+.composer {
+  background: rgba(27, 41, 41, 0.94);
+  border-color: rgba(162, 180, 174, 0.23);
+}
+
+.composer:focus-within {
+  border-color: rgba(169, 201, 128, 0.7);
+  box-shadow: 0 0 0 3px rgba(169, 201, 128, 0.13), 0 8px 26px rgba(0, 0, 0, 0.17);
+}
+
+.catchup-divider {
+  color: var(--muted);
+}
+
+.reconnect-banner {
+  border-color: rgba(169, 201, 128, 0.3);
+  background: rgba(169, 201, 128, 0.08);
+  color: #d5e7b7;
+}
+
+/* Reserve the glass material for navigation, focused controls, and overlays. */
+.app-header {
+  background: rgba(17, 27, 28, 0.62);
+  border-bottom-color: rgba(232, 236, 227, 0.14);
+  box-shadow: 0 10px 34px rgba(4, 11, 10, 0.22), inset 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px) saturate(155%);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+}
+
+.sidebar {
+  background: rgba(27, 41, 41, 0.68);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+
+.header-search {
+  background: rgba(36, 53, 50, 0.46);
+  border-color: rgba(232, 236, 227, 0.14);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07);
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.header-search:hover {
+  background: rgba(55, 75, 64, 0.56);
+  border-color: rgba(192, 217, 154, 0.44);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.11), 0 4px 16px rgba(4, 11, 10, 0.18);
+}
+
+.user-menu,
+.palette,
+.catchup-panel,
+.members-panel,
+.dialog-card {
+  border-color: rgba(232, 236, 227, 0.19);
+  background: rgba(26, 40, 38, 0.78);
+  box-shadow:
+    0 24px 70px rgba(4, 11, 10, 0.45),
+    inset 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 -1px rgba(169, 201, 128, 0.05);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+.composer {
+  background: rgba(27, 41, 41, 0.76);
+  border-color: rgba(232, 236, 227, 0.19);
+  box-shadow: 0 12px 32px rgba(4, 11, 10, 0.24), inset 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px) saturate(145%);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+}
+
+.composer:focus-within {
+  border-color: rgba(192, 217, 154, 0.62);
+  box-shadow:
+    0 0 0 3px rgba(169, 201, 128, 0.14),
+    0 12px 32px rgba(4, 11, 10, 0.24),
+    inset 0 1px rgba(255, 255, 255, 0.13);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-header { background: rgba(17, 27, 28, 0.96); }
+  .sidebar { background: rgba(27, 41, 41, 0.97); }
+  .user-menu,
+  .palette,
+  .catchup-panel,
+  .members-panel,
+  .dialog-card { background: #1a2826; }
+  .composer { background: #1b2929; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-header { background: rgba(17, 27, 28, 0.96); }
+  .sidebar { background: rgba(27, 41, 41, 0.97); }
+  .user-menu,
+  .palette,
+  .catchup-panel,
+  .members-panel,
+  .dialog-card { background: #1a2826; }
+  .composer { background: #1b2929; }
+}

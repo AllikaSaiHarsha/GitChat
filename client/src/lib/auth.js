@@ -51,6 +51,18 @@ export async function fetchHistory(room, token) {
   return res.json();
 }
 
+// Catch-up history is paged separately from the chat's 100-message viewport so
+// the recap can report the full count even after a long absence.
+export async function fetchCatchUp(room, token, since) {
+  const query = since ? `?since=${encodeURIComponent(since)}` : '';
+  const res = await fetch(`${SERVER_URL}/api/messages/${encodeURIComponent(room)}${query}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (res.status === 401) throw new Error('unauthorized');
+  if (!res.ok) throw new Error('catch-up failed');
+  return res.json();
+}
+
 export async function fetchActivity(room, token) {
   const res = await fetch(`${SERVER_URL}/api/stats/activity?room=${encodeURIComponent(room)}`, {
     headers: { Authorization: `Bearer ${token}` }

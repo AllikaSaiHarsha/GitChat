@@ -16,12 +16,13 @@ export default function Composer({ value, offline, onChange, onKeyDown, onSend }
   }, [value]);
 
   return (
-    <div className="composer">
+    <div className="composer glass-composer">
       <textarea
         ref={ref}
         id="composer-input"
         className="composer-input"
         rows={1}
+        maxLength={1000}
         placeholder="Type a message…"
         aria-label="Message"
         value={value}
@@ -31,6 +32,7 @@ export default function Composer({ value, offline, onChange, onKeyDown, onSend }
       <div className="composer-footer">
         <span className="composer-hint">
           {offline ? 'Reconnecting — try again in a moment' : 'Enter to send · Shift + Enter for a new line'}
+          {!offline && <span className="char-count">{value.length}/1000</span>}
         </span>
         <motion.button
           type="button"

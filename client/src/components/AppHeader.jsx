@@ -28,6 +28,7 @@ export default function AppHeader({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const userRef = useRef(null);
+  const userButtonRef = useRef(null);
   const isMac =
     typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
 
@@ -38,7 +39,10 @@ export default function AppHeader({
       if (!userRef.current?.contains(e.target)) setMenuOpen(false);
     };
     const onKey = (e) => {
-      if (e.key === 'Escape') setMenuOpen(false);
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+        userButtonRef.current?.focus();
+      }
     };
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKey);
@@ -50,11 +54,12 @@ export default function AppHeader({
 
   const run = (fn) => {
     setMenuOpen(false);
+    userButtonRef.current?.focus();
     fn?.();
   };
 
   return (
-    <header className="app-header">
+    <header className="app-header glass-header">
       <div className="app-header-inner">
         {stage === 'chat' && (
           <button
@@ -88,10 +93,11 @@ export default function AppHeader({
 
         <div className="header-user" ref={userRef}>
           <button
+            ref={userButtonRef}
             type="button"
             className="header-user-btn"
-            aria-haspopup="menu"
             aria-expanded={menuOpen}
+            aria-controls={menuOpen ? 'user-actions' : undefined}
             onClick={() => setMenuOpen((o) => !o)}
           >
             <Avatar name={username} size={22} own />
@@ -102,8 +108,8 @@ export default function AppHeader({
           <AnimatePresence>
             {menuOpen && (
               <motion.div
+                id="user-actions"
                 className="user-menu"
-                role="menu"
                 initial={{ opacity: 0, y: -4, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.98 }}
@@ -122,7 +128,6 @@ export default function AppHeader({
                 {stage === 'chat' && (
                   <button
                     type="button"
-                    role="menuitem"
                     className="user-menu-item"
                     onClick={() => run(onLeave)}
                   >
@@ -133,7 +138,6 @@ export default function AppHeader({
                 {stage === 'chat' && canLeave && (
                   <button
                     type="button"
-                    role="menuitem"
                     className="user-menu-item"
                     title={`Stop being a member of #${room}`}
                     onClick={() => run(onAskLeave)}
@@ -144,7 +148,6 @@ export default function AppHeader({
                 )}
                 <button
                   type="button"
-                  role="menuitem"
                   className="user-menu-item"
                   onClick={() => run(onLogout)}
                 >
