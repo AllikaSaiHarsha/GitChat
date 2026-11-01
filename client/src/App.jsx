@@ -430,9 +430,9 @@ export default function App() {
                 )}
               </AnimatePresence>
 
-              <Button onClick={submitAuth} className="w-full" size="lg">
+              <motion.button whileTap={{ scale: 0.98 }} onClick={submitAuth}>
                 {mode === 'login' ? 'Login' : 'Create account'}
-              </Button>
+              </motion.button>
             </div>
           </motion.div>
         )}
