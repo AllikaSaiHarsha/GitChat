@@ -373,10 +373,10 @@ export default function App() {
                   <GitChatLogo size={24} />
                 </motion.span>
                 <h1>GitChat</h1>
-                <p className="auth-sub">Sign in to join the conversation</p>
+                <p className="sub">Sign in to join the conversation</p>
               </div>
 
-              <div className="segment-wrapper">
+              <div className="segmented">
                 <button
                   type="button"
                   className={mode === 'login' ? 'active' : ''}
@@ -429,9 +429,9 @@ export default function App() {
                 )}
               </AnimatePresence>
 
-              <button type="submit" className="submit-btn" onClick={submitAuth}>
+              <motion.button whileTap={{ scale: 0.98 }} onClick={submitAuth}>
                 {mode === 'login' ? 'Login' : 'Create account'}
-              </button>
+              </motion.button>
             </div>
           </motion.div>
         )}
