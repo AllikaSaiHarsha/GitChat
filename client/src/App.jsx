@@ -361,22 +361,22 @@ export default function App() {
         {stage === 'auth' && (
           <motion.div
             key="auth"
-            className="auth-hero"
+            className="container"
             variants={pageVariants}
             initial="initial"
             animate="animate"
             exit="exit"
           >
-            <div className="auth-card">
+            <div className="card">
               <div className="brand">
                 <motion.span className="brand-badge" {...popIn}>
                   <GitChatLogo size={24} />
                 </motion.span>
                 <h1>GitChat</h1>
-                <p className="auth-sub">Sign in to join the conversation</p>
+                <p className="sub">Sign in to join the conversation</p>
               </div>
 
-              <div className="segment-wrapper">
+              <div className="segmented">
                 <button
                   type="button"
                   className={mode === 'login' ? 'active' : ''}
@@ -429,7 +429,7 @@ export default function App() {
                 )}
               </AnimatePresence>
 
-              <motion.button whileTap={{ scale: 0.98 }} onClick={submitAuth} className="submit-btn">
+              <motion.button whileTap={{ scale: 0.98 }} onClick={submitAuth}>
                 {mode === 'login' ? 'Login' : 'Create account'}
               </motion.button>
             </div>
