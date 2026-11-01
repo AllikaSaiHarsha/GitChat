@@ -24,7 +24,7 @@ function findLanguage(node) {
   return lang ? lang.slice('language-'.length) : '';
 }
 
-// GitHub-style fenced code block: language label, copy button, horizontal scroll.
+// Fenced code block: language label, copy button, horizontal scroll.
 function CodeBlock({ node, children }) {
   const [copied, setCopied] = useState(false);
   const text = extractText(node);

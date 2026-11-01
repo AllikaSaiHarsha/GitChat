@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { SearchIcon } from '@primer/octicons-react';
 import useModalFocus from '../hooks/useModalFocus.js';
 
-// GitHub-style command palette. Opened with Ctrl/Cmd+K from App.
+// App command palette. Opened with Ctrl/Cmd+K from App.
 // `actions`: static items. `queryActions(q)`: extra items derived from the query
 // (used for "Join room #<querystring>").
 export default function CommandPalette({ actions = [], queryActions, onClose }) {

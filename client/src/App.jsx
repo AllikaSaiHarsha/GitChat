@@ -5,7 +5,7 @@ import Chat from './components/Chat.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
 import LeaveRoomDialog from './components/LeaveRoomDialog.jsx';
 import AppHeader from './components/AppHeader.jsx';
-import GitChatLogo from './components/GitChatLogo.jsx';
+import PurlwayLogo from './components/PurlwayLogo.jsx';
 import Avatar from './components/Avatar.jsx';
 import { getToken, clearToken, register, login, fetchMe, fetchRooms, createRoom, joinRoom, leaveRoom } from './lib/auth.js';
 import { resetSocket } from './hooks/useSocket.js';
@@ -403,9 +403,9 @@ export default function App() {
             <form className="card auth-card" onSubmit={submitAuth}>
               <div className="brand">
                 <motion.span className="brand-badge" {...popIn}>
-                  <GitChatLogo size={24} />
+                  <PurlwayLogo size={24} />
                 </motion.span>
-                <h1>GitChat</h1>
+                <h1>Purlway</h1>
                 <p className="sub">Sign in to join the conversation</p>
               </div>
 

@@ -1,4 +1,4 @@
-// GitChat API smoke tests.
+// Purlway API smoke tests.
 //
 // Boots app instances in-process on ephemeral loopback ports with the
 // in-memory store, so a run never touches a dev server you already have open,

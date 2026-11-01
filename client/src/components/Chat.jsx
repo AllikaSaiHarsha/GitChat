@@ -8,7 +8,7 @@ import MessageRow from './MessageRow.jsx';
 import Composer from './Composer.jsx';
 import CatchUpPanel from './CatchUpPanel.jsx';
 import MembersPanel from './MembersPanel.jsx';
-import GitChatLogo from './GitChatLogo.jsx';
+import PurlwayLogo from './PurlwayLogo.jsx';
 
 // Messages stagger in on mount, like GitHub loading a timeline.
 const listVariants = {
@@ -520,7 +520,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
               transition={{ duration: 0.2, ease: 'easeOut' }}
             >
               <span className="empty-icon" aria-hidden="true">
-                <GitChatLogo size={26} />
+                <PurlwayLogo size={26} />
               </span>
               <h2 className="empty-title">Welcome to #{room}</h2>
               <p className="empty-text">

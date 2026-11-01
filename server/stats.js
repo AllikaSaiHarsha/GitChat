@@ -1,4 +1,4 @@
-// Activity stats for the "Catch me up" panel (GitHub-style heatmap).
+// Activity stats for the "Catch me up" panel's 12-week heatmap.
 // Returns per-day message counts for the room and for one user,
 // over a rolling 12-week window. Mongo when connected, else memory.
 import { isDbConfigured, isDbReady } from './db.js';

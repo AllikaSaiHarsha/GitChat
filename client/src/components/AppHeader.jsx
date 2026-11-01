@@ -9,10 +9,10 @@ import {
   SignOutIcon,
   XCircleIcon
 } from '@primer/octicons-react';
-import GitChatLogo from './GitChatLogo.jsx';
+import PurlwayLogo from './PurlwayLogo.jsx';
 import Avatar from './Avatar.jsx';
 
-// Compact GitHub-style top navigation: brand, search (opens the command
+// Compact top navigation: brand, search (opens the command
 // palette), sidebar toggle (chat only) and the user menu.
 export default function AppHeader({
   stage,
@@ -75,9 +75,9 @@ export default function AppHeader({
 
         <span className="header-brand">
           <span className="brand-badge small">
-            <GitChatLogo size={17} />
+            <PurlwayLogo size={17} />
           </span>
-          <span className="header-brand-text">GitChat</span>
+          <span className="header-brand-text">Purlway</span>
         </span>
 
         <button

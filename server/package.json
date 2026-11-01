@@ -1,7 +1,7 @@
 {
-  "name": "realtime-chat-server",
+  "name": "purlway-server",
   "version": "1.0.0",
-  "description": "Realtime chat server with Socket.io",
+  "description": "Purlway realtime team chat server",
   "type": "module",
   "main": "index.js",
   "engines": {

@@ -8,7 +8,7 @@ function colorFor(name) {
   return PALETTE[hash % PALETTE.length];
 }
 
-// GitHub-style identicon avatar: a colored circle with the user's initial.
+// Initial avatar with a name-stable color from Purlway's muted palette.
 export default function Avatar({ name = '?', size = 32, own = false }) {
   const label = (name.trim().charAt(0) || '?').toUpperCase();
   return (

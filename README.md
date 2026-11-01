@@ -1,6 +1,6 @@
-# GitChat
+# Purlway
 
-A realtime chat app wearing a GitHub-dark theme — rooms, memberships, join passwords, and admin tooling.
+Purlway keeps team conversations flowing through focused rooms, live presence, and lightweight collaboration tools.
 
 Stack: **React (Vite)** + **Node/Express** + **Socket.IO** · JWT auth · MongoDB optional (in-memory fallback)
 
@@ -13,6 +13,10 @@ Stack: **React (Vite)** + **Node/Express** + **Socket.IO** · JWT auth · MongoD
 - **Session resume** — only a real 401 signs you out; a restarting server just retries.
 - **Chat niceties** — presence, typing indicators, emoji reactions, markdown + syntax highlighting, a "new messages" divider, a catch-up panel with an activity heatmap, and a command palette (`Ctrl K`).
 - **Guards** — rate-limited auth/join endpoints, 7-day JWT expiry, CORS pinned to the client origin.
+
+## Brand
+
+Purlway pairs the purl stitch with a path that connects people. Its visual identity uses a woven conversation mark, warm copper, soft linen, and deep ink. The voice is clear, human, and calm. See [BRAND.md](BRAND.md) for the visual and writing guide.
 
 ## Run locally
 

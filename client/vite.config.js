@@ -8,7 +8,7 @@ import react from '@vitejs/plugin-react';
 // block there with the same API origin when deploying there.)
 function staticHostHeaders(headers) {
   return {
-    name: 'gitchat-static-host-headers',
+    name: 'purlway-static-host-headers',
     apply: 'build',
     generateBundle() {
       const lines = Object.entries(headers)

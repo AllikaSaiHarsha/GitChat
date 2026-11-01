@@ -93,7 +93,7 @@ export function createApp() {
   // as a hot cache and as the no-database fallback (see socket.js).
 
   app.get('/', (req, res) => {
-    res.json({ status: 'ok', message: 'GitChat server running' });
+    res.json({ status: 'ok', message: 'Purlway server running' });
   });
 
   app.get('/api/messages/:room', requireAuth, asyncRoute(async (req, res) => {

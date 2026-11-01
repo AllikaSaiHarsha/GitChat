@@ -6,7 +6,7 @@ function uniqueId() {
 
 async function register(page, username) {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'GitChat' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Purlway' })).toBeVisible();
   await page.getByRole('button', { name: 'Register' }).click();
   await page.getByLabel('Username').fill(username);
   await page.getByLabel('Password').fill('e2e-password-123');

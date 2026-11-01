@@ -3,7 +3,7 @@ import { CheckCircleIcon, GraphIcon, SyncIcon, XIcon } from '@primer/octicons-re
 import Avatar from './Avatar.jsx';
 
 // "Catch me up": a recap of what happened since your last visit
-// plus a GitHub-style 12-week activity heatmap for the room.
+// plus a 12-week activity heatmap for the room.
 export default function CatchUpPanel({ me, room, messages, catchUpData, lastSeenAt, activity, activityUnavailable, loading, onClose, onJump }) {
   const recapMessages = catchUpData?.messages || messages;
   const chatMsgs = recapMessages.filter((m) => m.username !== 'system');
@@ -178,7 +178,7 @@ function level(count) {
   return 1;
 }
 
-// 12 weeks ending today, columns = weeks, rows = weekdays (GitHub style).
+// 12 weeks ending today, columns = weeks, rows = weekdays.
 function buildWeeks(days) {
   const today = new Date();
   const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));

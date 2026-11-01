@@ -1,27 +1,25 @@
 /* ==========================================================================
-   GitHub Primer dark tokens
+   Purlway dark tokens
    ========================================================================== */
 :root {
-  --bg: #0d1117;
-  --panel: #161b22;
-  --input-bg: #0d1117;
-  --border: #30363d;
-  --text: #e6edf3;
-  --muted: #7d8590;
-  --accent: #1f6feb;
-  --accent-hover: #388bfd;
-  --green: #3fb950;
-  --radius: 6px;
+  --bg: #17191e;
+  --panel: #24262d;
+  --input-bg: #1b1d23;
+  --border: #41414a;
+  --text: #f0ece7;
+  --muted: #b8b0aa;
+  --accent: #e7a176;
+  --accent-hover: #f2b88f;
+  --green: #93c5a9;
+  --radius: 10px;
 
-  /* Primer-style derived helpers */
-  --hover: #21262d;
-  --accent-subtle: rgba(31, 111, 235, 0.15);
-  --focus-ring: 0 0 0 3px rgba(31, 111, 235, 0.3);
+  --hover: #303138;
+  --accent-subtle: rgba(231, 161, 118, 0.13);
+  --focus-ring: 0 0 0 3px rgba(231, 161, 118, 0.3);
 
-  /* GitHub CTA green + link blue */
-  --primary: #238636;
-  --primary-hover: #2ea043;
-  --link: #4493f8;
+  --primary: #e7a176;
+  --primary-hover: #f2b88f;
+  --link: #ffc49c;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
@@ -199,7 +197,7 @@ button.ghost:hover {
   }
 }
 
-/* GitHub-style segmented toggle (dark) */
+/* Compact segmented toggle for the dark interface */
 .segmented {
   display: flex;
   background: var(--bg);
@@ -275,7 +273,7 @@ button.ghost:hover {
 }
 
 /* ==========================================================================
-   App frame + top navigation (GitHub-style)
+   App frame + top navigation
    ========================================================================== */
 .app-frame {
   height: 100vh;
