@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { SearchIcon } from '@primer/octicons-react';
+import useModalFocus from '../hooks/useModalFocus.js';
 
 // GitHub-style command palette. Opened with Ctrl/Cmd+K from App.
 // `actions`: static items. `queryActions(q)`: extra items derived from the query
@@ -9,15 +10,9 @@ export default function CommandPalette({ actions = [], queryActions, onClose }) 
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef(null);
+  const dialogRef = useRef(null);
 
-  useEffect(() => {
-    inputRef.current?.focus();
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useModalFocus(dialogRef, inputRef);
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -77,15 +72,23 @@ export default function CommandPalette({ actions = [], queryActions, onClose }) 
       onClick={onClose}
     >
       <motion.div
+        ref={dialogRef}
         className="palette"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
+        tabIndex={-1}
         initial={{ opacity: 0, y: -8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -6, scale: 0.98 }}
         transition={{ type: 'spring', stiffness: 420, damping: 34 }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            onClose();
+          }
+        }}
       >
         <div className="palette-input-row">
           <SearchIcon size={16} className="palette-search" />

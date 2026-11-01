@@ -2,10 +2,30 @@
 // Capped at 100 messages per room. Used as fallback when MongoDB is down,
 // and as a hot cache alongside it.
 import { Message } from './models/Message.js';
-import { isDbReady } from './db.js';
+import { isDbConfigured, isDbReady } from './db.js';
 import { isMember, joinRoom, normalizeRoomName } from './rooms.js';
 
 export const messageStore = new Map();
+export const historyEvictedRooms = new Set();
+// Activity counts are independent from the bounded 100-message history cache.
+export const activityStore = new Map();
+
+function recordActivity(msg) {
+  let days = activityStore.get(msg.room);
+  if (!days) {
+    days = new Map();
+    activityStore.set(msg.room, days);
+  }
+  const day = msg.createdAt.slice(0, 10);
+  let counts = days.get(day);
+  if (!counts) {
+    counts = new Map();
+    days.set(day, counts);
+  }
+  counts.set(msg.username, (counts.get(msg.username) || 0) + 1);
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  for (const key of days.keys()) if (key < cutoff) days.delete(key);
+}
 export const users = new Map(); // socket.id -> { username, room }
 
 // Reactions: room -> messageId -> Map(emoji -> Set(username)).
@@ -91,10 +111,19 @@ async function messageExistsInRoom(room, messageId) {
   if (getRoomMessages(room).some((m) => m.id === messageId)) return true;
   if (!isDbReady()) return false;
   try {
-    return !!(await Message.exists({ mid: messageId, room }));
+    const selector = legacyAwareSelector(room, messageId);
+    return !!(await Message.exists(selector));
   } catch {
     return false;
   }
+}
+
+function legacyAwareSelector(room, messageId) {
+  const alternatives = [{ mid: messageId }];
+  if (/^[a-f\d]{24}$/i.test(messageId)) {
+    alternatives.push({ mid: { $exists: false }, _id: messageId });
+  }
+  return { room, $or: alternatives };
 }
 
 // Toggle one reaction on a persisted message. Element-level operators keep
@@ -103,26 +132,27 @@ async function messageExistsInRoom(room, messageId) {
 // the final reactions array, or null when the document doesn't exist yet
 // (the caller then falls back to the memory toggle).
 async function toggleReactionInDb(room, messageId, emoji, username) {
+  const selector = legacyAwareSelector(room, messageId);
   const removed = await Message.updateOne(
-    { mid: messageId, room, reactions: { $elemMatch: { emoji, users: username } } },
+    { ...selector, reactions: { $elemMatch: { emoji, users: username } } },
     { $pull: { 'reactions.$.users': username } }
   );
   if (removed.modifiedCount) {
     // Drop emoji entries that lost their last user.
-    await Message.updateOne({ mid: messageId, room }, { $pull: { reactions: { users: { $size: 0 } } } });
+    await Message.updateOne(selector, { $pull: { reactions: { users: { $size: 0 } } } });
   } else {
     const added = await Message.updateOne(
-      { mid: messageId, room, 'reactions.emoji': emoji },
+      { ...selector, 'reactions.emoji': emoji },
       { $addToSet: { 'reactions.$.users': username } }
     );
     if (!added.matchedCount) {
       await Message.updateOne(
-        { mid: messageId, room, 'reactions.emoji': { $ne: emoji } },
+        { ...selector, 'reactions.emoji': { $ne: emoji } },
         { $push: { reactions: { emoji, users: [username] } } }
       );
     }
   }
-  const doc = await Message.findOne({ mid: messageId, room }).select('reactions').lean();
+  const doc = await Message.findOne(selector).select('reactions').lean();
   if (!doc) return null;
   return doc.reactions || [];
 }
@@ -146,23 +176,57 @@ export async function loadHistory(room) {
     for (const d of docs) {
       setMemoryReactions(room, d.mid || d._id.toString(), d.reactions || []);
     }
+  } else if (isDbConfigured()) {
+    throw Object.assign(new Error('Message history is temporarily unavailable.'), { status: 503 });
   } else {
     list = getRoomMessages(room);
   }
   return list.map((m) => ({ ...m, reactions: summarizeReactions(room, m.id) }));
 }
 
+// Bounded catch-up payload with an exact count when MongoDB is available.
+// The memory fallback explicitly identifies when older history was evicted.
+export async function loadCatchUp(room, since) {
+  if (isDbReady()) {
+    const filter = { room, username: { $ne: 'system' }, createdAt: { $gt: since } };
+    const [docs, totalCount, people] = await Promise.all([
+      Message.find(filter).sort({ createdAt: -1 }).limit(100).lean(),
+      Message.countDocuments(filter),
+      Message.distinct('username', { room, username: { $ne: 'system' }, createdAt: { $gt: since } })
+    ]);
+    return {
+      messages: docs.reverse().map((d) => ({
+        id: d.mid || d._id.toString(),
+        room: d.room,
+        username: d.username,
+        text: d.text,
+        createdAt: d.createdAt.toISOString(),
+        reactions: d.reactions || []
+      })),
+      totalCount,
+      peopleCount: people.length,
+      partial: false
+    };
+  }
+  const all = getRoomMessages(room).filter((m) => new Date(m.createdAt).getTime() > since.getTime());
+  const chat = all.filter((m) => m.username !== 'system');
+  return {
+    messages: chat.slice(-100),
+    totalCount: chat.length,
+    peopleCount: new Set(chat.map((m) => m.username)).size,
+    partial: isDbConfigured() || historyEvictedRooms.has(room)
+  };
+}
+
 function persistMessage(msg) {
-  if (!isDbReady()) return;
-  Message.create({
+  if (!isDbReady()) return Promise.resolve(false);
+  return Message.create({
     mid: msg.id,
     room: msg.room,
     username: msg.username,
     text: msg.text,
     createdAt: msg.createdAt
-  }).catch((e) =>
-    console.log('[db] message save failed:', e.message)
-  );
+  }).then(() => true);
 }
 
 function getRoomUsers(room) {
@@ -191,6 +255,7 @@ export function evictFromRoom(io, room, username, reason = 'removed') {
     }
   }
   if (evicted) {
+    io.to(room).emit('user_typing', { username, isTyping: false });
     io.to(room).emit('user_left', { username });
     io.to(room).emit('room_users', getRoomUsers(room));
   }
@@ -250,9 +315,13 @@ export function setupSocket(io) {
 
   io.on('connection', (socket) => {
     const chatter = tokenBucket(CHATTER_BURST, CHATTER_REFILL_PER_SEC);
+    socket.data.joinRevision = 0;
+    socket.data.disconnected = false;
     // console.log('connected:', socket.id);
 
     socket.on('join_room', safeHandler(async (payload) => {
+      const joinRevision = ++socket.data.joinRevision;
+      socket.data.disconnected = false;
       const room = payload && typeof payload === 'object' ? payload.room : undefined;
       if (room !== undefined && typeof room !== 'string') return; // malformed payload
       const cleanRoom = normalizeRoomName(room) || 'general';
@@ -260,7 +329,10 @@ export function setupSocket(io) {
       if (!cleanName) return;
       // Rate limit before join work: bounded attempts per user (bcrypt for
       // password rooms is the expensive part).
-      if (!bucketFor(joinBuckets, cleanName, JOIN_BURST, JOIN_REFILL_PER_SEC)()) return;
+      if (!bucketFor(joinBuckets, cleanName, JOIN_BURST, JOIN_REFILL_PER_SEC)()) {
+        socket.emit('join_rate_limited', { room: cleanRoom, retryAfter: 5 });
+        return;
+      }
 
       // Rooms are private to their members (see rooms.js). #general is open,
       // and legacy rooms (chat history but no Room doc yet) register on their
@@ -274,6 +346,7 @@ export function setupSocket(io) {
           if (previous) {
             socket.leave(previous.room);
             users.delete(socket.id);
+            socket.to(previous.room).emit('user_typing', { username: cleanName, isTyping: false });
             const stillHere = [...users.values()].some(
               (x) => x.room === previous.room && x.username === cleanName
             );
@@ -285,12 +358,17 @@ export function setupSocket(io) {
         }
       }
 
+      // Async membership checks can resolve after a newer switch or after a
+      // disconnect; stale joins must never recreate online presence.
+      if (socket.data.disconnected || joinRevision !== socket.data.joinRevision) return;
+
       const prev = users.get(socket.id);
 
       // Moving rooms on one socket: unsubscribe from the old room and let it
       // refresh — otherwise it keeps showing this user as online after they left.
       if (prev && prev.room !== cleanRoom) {
         socket.leave(prev.room);
+        socket.to(prev.room).emit('user_typing', { username: cleanName, isTyping: false });
         const stillInOldRoom = [...users.entries()].some(
           ([id, x]) => id !== socket.id && x.room === prev.room && x.username === cleanName
         );
@@ -306,9 +384,11 @@ export function setupSocket(io) {
 
       // send history to just-joined user (MongoDB if connected, else memory)
       try {
-        socket.emit('message_history', await loadHistory(cleanRoom));
+        const history = await loadHistory(cleanRoom);
+        if (socket.data.disconnected || joinRevision !== socket.data.joinRevision) return;
+        socket.emit('message_history', history);
       } catch {
-        socket.emit('message_history', getRoomMessages(cleanRoom));
+        socket.emit('history_error', { room: cleanRoom });
       }
 
       // notify room (only when this user isn't already present via another tab/socket)
@@ -324,9 +404,31 @@ export function setupSocket(io) {
       const cleanText = text.trim();
       if (!cleanText) return;
       // Rate limit before the membership lookup: bounded sends per user.
-      if (!bucketFor(messageBuckets, socket.data.username, MESSAGE_BURST, MESSAGE_REFILL_PER_SEC)()) return;
+      if (!bucketFor(messageBuckets, socket.data.username, MESSAGE_BURST, MESSAGE_REFILL_PER_SEC)()) {
+        socket.emit('message_error', {
+          text: cleanText.slice(0, 1000),
+          message: 'You are sending messages too quickly. Wait a moment and try again.'
+        });
+        return;
+      }
       // Members only: keeps password-protected rooms private end to end.
-      if (!(await isMember(cleanRoom, socket.data.username))) return;
+      let authorized;
+      try {
+        authorized = await isMember(cleanRoom, socket.data.username);
+      } catch {
+        socket.emit('message_error', {
+          text: cleanText.slice(0, 1000),
+          message: 'Room access could not be checked. Please try again.'
+        });
+        return;
+      }
+      if (!authorized) {
+        socket.emit('message_error', {
+          text: cleanText.slice(0, 1000),
+          message: 'You no longer have access to this room.'
+        });
+        return;
+      }
 
       const msg = {
         id: Date.now().toString() + '-' + Math.random().toString(36).slice(2, 7),
@@ -336,11 +438,24 @@ export function setupSocket(io) {
         createdAt: new Date().toISOString()
       };
 
+      if (isDbConfigured() && !isDbReady()) {
+        socket.emit('message_error', { text: cleanText, message: 'Message storage is temporarily unavailable. Your message was not sent.' });
+        return;
+      }
+      try {
+        await persistMessage(msg);
+      } catch (e) {
+        console.log('[db] message save failed:', e.message);
+        socket.emit('message_error', { text: cleanText, message: 'Message could not be saved. Please try again.' });
+        return;
+      }
       const arr = getRoomMessages(cleanRoom);
       arr.push(msg);
-      if (arr.length > 100) arr.splice(0, arr.length - 100);
-      persistMessage(msg);
-
+      if (arr.length > 100) {
+        arr.splice(0, arr.length - 100);
+        historyEvictedRooms.add(cleanRoom);
+      }
+      recordActivity(msg);
       io.to(cleanRoom).emit('receive_message', msg);
     }));
 
@@ -379,7 +494,10 @@ export function setupSocket(io) {
         persistedReactions = await toggleReactionInDb(cleanRoom, messageId, emoji, username);
         if (persistedReactions) setMemoryReactions(cleanRoom, messageId, persistedReactions);
       }
-      if (!persistedReactions) toggleReactionInMemory(cleanRoom, messageId, emoji, username);
+      if (!persistedReactions) {
+        if (isDbConfigured() && isDbReady()) return;
+        toggleReactionInMemory(cleanRoom, messageId, emoji, username);
+      }
 
       io.to(cleanRoom).emit('message_reaction', {
         messageId,
@@ -388,6 +506,8 @@ export function setupSocket(io) {
     }));
 
     socket.on('disconnect', () => {
+      socket.data.disconnected = true;
+      socket.data.joinRevision += 1;
       const u = users.get(socket.id);
       users.delete(socket.id);
       if (!u) return;
@@ -395,7 +515,10 @@ export function setupSocket(io) {
       const stillHere = [...users.values()].some(
         (x) => x.room === u.room && x.username === u.username
       );
-      if (!stillHere) socket.to(u.room).emit('user_left', { username: u.username });
+      if (!stillHere) {
+        socket.to(u.room).emit('user_typing', { username: u.username, isTyping: false });
+        socket.to(u.room).emit('user_left', { username: u.username });
+      }
       io.to(u.room).emit('room_users', getRoomUsers(u.room));
     });
   });

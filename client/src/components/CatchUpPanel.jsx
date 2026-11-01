@@ -4,13 +4,16 @@ import Avatar from './Avatar.jsx';
 
 // "Catch me up": a recap of what happened since your last visit
 // plus a GitHub-style 12-week activity heatmap for the room.
-export default function CatchUpPanel({ me, room, messages, lastSeenAt, activity, loading, onClose, onJump }) {
-  const chatMsgs = messages.filter((m) => m.username !== 'system');
+export default function CatchUpPanel({ me, room, messages, catchUpData, lastSeenAt, activity, activityUnavailable, loading, onClose, onJump }) {
+  const recapMessages = catchUpData?.messages || messages;
+  const chatMsgs = recapMessages.filter((m) => m.username !== 'system');
   const anchor = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
   let missed = anchor ? chatMsgs.filter((m) => new Date(m.createdAt).getTime() > anchor) : [];
   if (!anchor) missed = chatMsgs.slice(-25);
 
   const people = [...new Set(missed.map((m) => m.username))];
+  const missedCount = catchUpData?.totalCount ?? missed.length;
+  const peopleCount = catchUpData?.peopleCount ?? people.length;
 
   // Most recent message per person, up to 4 people.
   const highlights = [];
@@ -52,13 +55,15 @@ export default function CatchUpPanel({ me, room, messages, lastSeenAt, activity,
       </header>
 
       <p className="catchup-sub">
-        {missed.length === 0
-          ? `You're all caught up in #${room}.`
-          : anchor
-            ? `${missed.length} new message${missed.length === 1 ? '' : 's'} from ${people.length} ${
-                people.length === 1 ? 'person' : 'people'
-              } while you were away.`
-            : `Latest activity in #${room}.`}
+        {catchUpData?.partial
+          ? `Showing ${missed.length} recent message${missed.length === 1 ? '' : 's'} available in this session.`
+          : missedCount === 0
+            ? `You're all caught up in #${room}.`
+            : anchor
+              ? `${missedCount} new message${missedCount === 1 ? '' : 's'} from ${peopleCount} ${
+                  peopleCount === 1 ? 'person' : 'people'
+                } while you were away.`
+              : `Latest activity in #${room}.`}
       </p>
 
       {highlights.length > 0 ? (
@@ -78,6 +83,10 @@ export default function CatchUpPanel({ me, room, messages, lastSeenAt, activity,
               </span>
             </button>
           ))}
+        </div>
+      ) : missedCount > 0 ? (
+        <div className="catchup-empty" role="status">
+          The recap count is available, but message previews could not be loaded.
         </div>
       ) : (
         <div className="catchup-empty">
@@ -99,52 +108,62 @@ export default function CatchUpPanel({ me, room, messages, lastSeenAt, activity,
         </div>
       ) : (
         <>
-          <div className="heatmap" aria-label="Message activity heatmap">
-            {weeks.map((week, wi) => (
-              <div className="heat-col" key={wi}>
-                {week.map((cell, di) =>
-                  cell ? (
-                    <div
-                      key={cell.key}
-                      className={'heat-cell lv' + level(cell.count)}
-                      title={`${cell.count} message${cell.count === 1 ? '' : 's'} on ${cell.key}`}
-                    />
-                  ) : (
-                    <div key={`pad-${wi}-${di}`} className="heat-cell pad" />
-                  )
+          {activityUnavailable ? (
+            <p className="catchup-empty" role="status">Activity data is temporarily unavailable.</p>
+          ) : (
+            <div className="heatmap" role="grid" aria-label="Daily message activity over the last 12 weeks">
+              {weeks.map((week, wi) => (
+                <div className="heat-col" role="row" key={wi}>
+                  {week.map((cell, di) =>
+                    cell ? (
+                      <div
+                        key={cell.key}
+                        className={'heat-cell lv' + level(cell.count)}
+                        title={`${cell.count} message${cell.count === 1 ? '' : 's'} on ${cell.key}`}
+                        role="gridcell"
+                        aria-label={`${cell.key}: ${cell.count} message${cell.count === 1 ? '' : 's'}`}
+                      />
+                    ) : (
+                      <div key={`pad-${wi}-${di}`} className="heat-cell pad" aria-hidden="true" />
+                    )
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!activityUnavailable && (
+            <>
+              <div className="heat-legend">
+                <span>Less</span>
+                {[0, 1, 2, 3, 4].map((l) => (
+                  <span key={l} className={'heat-cell small lv' + l} />
+                ))}
+                <span>More</span>
+              </div>
+
+              <div className="stats-row">
+                <div className="stat-chip">
+                  <span className="stat-value">{myTotal}</span>
+                  <span className="stat-label">your messages</span>
+                </div>
+                <div className="stat-chip">
+                  <span className="stat-value">{streak}d</span>
+                  <span className="stat-label">{streak > 0 ? 'streak' : 'no streak yet'}</span>
+                </div>
+                <div className="stat-chip">
+                  <span className="stat-value">{roomTotal}</span>
+                  <span className="stat-label">room total</span>
+                </div>
+                {best && (
+                  <div className="stat-chip">
+                    <span className="stat-value">{best[1]}</span>
+                    <span className="stat-label">best day</span>
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-
-          <div className="heat-legend">
-            <span>Less</span>
-            {[0, 1, 2, 3, 4].map((l) => (
-              <span key={l} className={'heat-cell small lv' + l} />
-            ))}
-            <span>More</span>
-          </div>
-
-          <div className="stats-row">
-            <div className="stat-chip">
-              <span className="stat-value">{myTotal}</span>
-              <span className="stat-label">your messages</span>
-            </div>
-            <div className="stat-chip">
-              <span className="stat-value">{streak}d</span>
-              <span className="stat-label">{streak > 0 ? 'streak' : 'no streak yet'}</span>
-            </div>
-            <div className="stat-chip">
-              <span className="stat-value">{roomTotal}</span>
-              <span className="stat-label">room total</span>
-            </div>
-            {best && (
-              <div className="stat-chip">
-                <span className="stat-value">{best[1]}</span>
-                <span className="stat-label">best day</span>
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </>
       )}
     </motion.aside>
@@ -162,18 +181,21 @@ function level(count) {
 // 12 weeks ending today, columns = weeks, rows = weekdays (GitHub style).
 function buildWeeks(days) {
   const today = new Date();
-  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  start.setUTCDate(start.getUTCDate() - 83);
+  const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - start.getUTCDay() - 77);
 
   const cells = [];
-  for (let i = 0; i < start.getUTCDay(); i += 1) cells.push(null);
   for (let i = 0; i < 84; i += 1) {
     const d = new Date(start);
     d.setUTCDate(start.getUTCDate() + i);
+    if (d > end) {
+      cells.push(null);
+      continue;
+    }
     const key = d.toISOString().slice(0, 10);
     cells.push({ key, count: days[key] || 0 });
   }
-  while (cells.length % 7 !== 0) cells.push(null);
 
   const weeks = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));

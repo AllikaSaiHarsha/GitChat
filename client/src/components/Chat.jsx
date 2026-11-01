@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LockIcon, PeopleIcon, SyncIcon } from '@primer/octicons-react';
 import { getSocket } from '../hooks/useSocket.js';
-import { getToken, fetchHistory, fetchActivity } from '../lib/auth.js';
+import { getToken, fetchHistory, fetchActivity, fetchCatchUp } from '../lib/auth.js';
 import Sidebar from './Sidebar.jsx';
 import MessageRow from './MessageRow.jsx';
 import Composer from './Composer.jsx';
@@ -18,6 +18,7 @@ const listVariants = {
 
 export default function Chat({ username, room, rooms, onLogout, catchUpRequest, onSelectRoom, onOpenRoomHub, onRefreshRooms, sidebarCollapsed }) {
   const [messages, setMessages] = useState([]);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const [input, setInput] = useState('');
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState(new Set());
@@ -28,11 +29,15 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
   const [catchUpOpen, setCatchUpOpen] = useState(false);
   const [catchUpAnchor, setCatchUpAnchor] = useState('');
   const [activity, setActivity] = useState(null);
+  const [catchUpData, setCatchUpData] = useState(null);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [activityUnavailable, setActivityUnavailable] = useState(false);
+  const [sendError, setSendError] = useState('');
   const [lastSeenAt, setLastSeenAt] = useState('');
   const [accessDenied, setAccessDenied] = useState(null); // { room, removed? } or null
   const [membersOpen, setMembersOpen] = useState(false);
   const [connected, setConnected] = useState(true); // false while the socket is down
+  const [joinNotice, setJoinNotice] = useState('');
   const bottomRef = useRef(null);
   const messagesRef = useRef(null);
   const stickToBottom = useRef(true);
@@ -40,6 +45,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
   const typingTimeout = useRef(null);
   const highlightTimer = useRef(null);
   const handledCatchUp = useRef(0);
+  const activityRequest = useRef(0);
   // Last-visit anchor: read once per room. StrictMode dev double-mounts the
   // effect (run #1's cleanup writes the key), so run #2 must not re-read it.
   const lastSeenInit = useRef({ room: null, value: '' });
@@ -48,6 +54,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     const token = getToken();
     const socket = getSocket(token);
     let alive = true;
+    let joinRetryTimer;
     const lastSeenKey = 'chat:lastseen:' + room;
     let storedLastSeen = '';
     try {
@@ -62,6 +69,8 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
 
     // Fresh room (or user): reset everything, then recompute per-room state.
     setMessages([]);
+    setHistoryUnavailable(false);
+    setInput('');
     stickToBottom.current = true;
     setShowLatest(false);
     setReactionsById({});
@@ -70,6 +79,12 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     setOnlineUsers([]);
     setTypingUsers(new Set());
     setLastSeenAt(prevVisitAt);
+    setActivity(null);
+    setCatchUpData(null);
+    setActivityLoading(false);
+    setActivityUnavailable(false);
+    setSendError('');
+    setJoinNotice('');
     setCatchUpOpen(false);
     setAccessDenied(null);
     setMembersOpen(false);
@@ -111,6 +126,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     fetchHistory(room, token)
       .then((data) => {
         if (!alive) return;
+        setHistoryUnavailable(false);
         if (Array.isArray(data) && data.length) {
           setMessages((prev) => (prev.length ? prev : data));
           collectReactions(data);
@@ -120,6 +136,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
       .catch((e) => {
         if (!alive) return;
         if (e.message === 'unauthorized') onLogout?.();
+        else setHistoryUnavailable(true);
       })
       .finally(() => {
         if (alive) setHistoryReady(true);
@@ -127,6 +144,8 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
 
     const onHistory = (msgs) => {
       if (!alive) return;
+      setHistoryUnavailable(false);
+      setJoinNotice('');
       if (Array.isArray(msgs)) {
         setMessages((previous) => {
           const combined = new Map(msgs.map((message) => [message.id, message]));
@@ -141,6 +160,17 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
         placeDivider(msgs);
       }
       setHistoryReady(true);
+    };
+    const onHistoryError = ({ room: failedRoom } = {}) => {
+      if (alive && (!failedRoom || failedRoom === room)) setHistoryUnavailable(true);
+    };
+    const onJoinRateLimited = ({ retryAfter = 5 } = {}) => {
+      if (!alive) return;
+      setJoinNotice(`Room switch is busy. Retrying in ${retryAfter} seconds.`);
+      clearTimeout(joinRetryTimer);
+      joinRetryTimer = setTimeout(() => {
+        if (alive && socket.connected) joinNow();
+      }, Math.max(1, Number(retryAfter) || 5) * 1000);
     };
     const onReceive = (msg) => {
       if (!alive || msg?.room !== room) return;
@@ -159,6 +189,13 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     const onReaction = ({ messageId, reactions }) => {
       if (!alive || !messageId) return;
       setReactionsById((prev) => ({ ...prev, [messageId]: Array.isArray(reactions) ? reactions : [] }));
+    };
+    const onMessageError = (payload = {}) => {
+      const { message, text } = payload;
+      if (typeof text === 'string' && text) {
+        setInput((current) => current ? `${text}\n${current}` : text);
+      }
+      setSendError(message || 'Message could not be sent. Please try again.');
     };
     const onUsers = (list) => setOnlineUsers(list || []);
     const onJoined = ({ username: u }) => {
@@ -187,8 +224,11 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     };
 
     socket.on('message_history', onHistory);
+    socket.on('history_error', onHistoryError);
+    socket.on('join_rate_limited', onJoinRateLimited);
     socket.on('receive_message', onReceive);
     socket.on('message_reaction', onReaction);
+    socket.on('message_error', onMessageError);
     socket.on('room_users', onUsers);
     socket.on('user_joined', onJoined);
     socket.on('user_left', onLeft);
@@ -206,12 +246,18 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     return () => {
       alive = false;
       clearTimeout(historyFallback);
+      clearTimeout(joinRetryTimer);
       clearTimeout(typingTimeout.current);
+      if (socket.connected) socket.emit('typing', { room, isTyping: false });
+      activityRequest.current += 1;
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('message_history', onHistory);
+      socket.off('history_error', onHistoryError);
+      socket.off('join_rate_limited', onJoinRateLimited);
       socket.off('receive_message', onReceive);
       socket.off('message_reaction', onReaction);
+      socket.off('message_error', onMessageError);
       socket.off('room_users', onUsers);
       socket.off('user_joined', onJoined);
       socket.off('user_left', onLeft);
@@ -263,10 +309,27 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
     }
     setCatchUpOpen(true);
     setActivityLoading(true);
-    fetchActivity(room, getToken())
-      .then((data) => setActivity(data))
-      .catch(() => setActivity({ days: {}, mineDays: {} }))
-      .finally(() => setActivityLoading(false));
+    setCatchUpData(null);
+    setActivityUnavailable(false);
+    const requestId = ++activityRequest.current;
+    const token = getToken();
+    Promise.allSettled([
+      fetchActivity(room, token),
+      fetchCatchUp(room, token, lastSeenAt)
+    ]).then(([activityResult, catchUpResult]) => {
+      if (activityRequest.current !== requestId) return;
+      setActivity(activityResult.status === 'fulfilled' ? activityResult.value : { days: {}, mineDays: {} });
+      setActivityUnavailable(activityResult.status === 'rejected' || activityResult.value?.partial === true);
+      if (catchUpResult.status === 'fulfilled') {
+        const data = catchUpResult.value;
+        setCatchUpData(Array.isArray(data)
+          ? { messages: data, totalCount: null, peopleCount: null, partial: false }
+          : data);
+      } else {
+        setCatchUpData({ messages, totalCount: null, peopleCount: null, partial: true });
+      }
+      setActivityLoading(false);
+    });
   };
 
   // Triggered from the command palette ("Catch me up").
@@ -295,6 +358,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
   const send = () => {
     const text = input.trim();
     if (!text || !connected) return;
+    setSendError('');
     getSocket().emit('send_message', { room, text });
     stickToBottom.current = true;
     setShowLatest(false);
@@ -304,6 +368,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
 
   const handleTyping = (v) => {
     setInput(v);
+    setSendError('');
     const socket = getSocket();
     clearTimeout(typingTimeout.current);
     if (!socket.connected) return;
@@ -331,10 +396,10 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
 
       <main className="chat-main">
         <header className="chat-header">
-          <h2 className="room-name">
+          <h1 className="room-name">
             <span className="room-hash" aria-hidden="true">#</span>
             <span className="room-text">{room}</span>
-          </h2>
+          </h1>
           {isAdmin && (
             <motion.button
               whileTap={{ scale: 0.97 }}
@@ -387,6 +452,8 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
           )}
         </AnimatePresence>
 
+        {joinNotice && <div className="reconnect-banner" role="status">{joinNotice}</div>}
+
         {accessDenied && (
           <div className="access-banner" role="alert">
             <LockIcon size={14} />
@@ -414,6 +481,10 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
         <motion.div
           ref={messagesRef}
           className="messages"
+          role="log"
+          aria-label={`Messages in #${room}`}
+          aria-live="polite"
+          aria-relevant="additions"
           onScroll={onMessagesScroll}
           variants={listVariants}
           initial="hidden"
@@ -435,7 +506,13 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
               ))}
             </div>
           )}
-          {historyReady && messages.length === 0 && (
+          {historyReady && historyUnavailable && messages.length === 0 && (
+            <div className="empty-state" role="alert">
+              <h2 className="empty-title">Messages are temporarily unavailable</h2>
+              <p className="empty-text">Check your connection and try again.</p>
+            </div>
+          )}
+          {historyReady && !historyUnavailable && messages.length === 0 && (
             <motion.div
               className="empty-state"
               initial={{ opacity: 0, y: 8 }}
@@ -445,7 +522,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
               <span className="empty-icon" aria-hidden="true">
                 <GitChatLogo size={26} />
               </span>
-              <h3 className="empty-title">Welcome to #{room}</h3>
+              <h2 className="empty-title">Welcome to #{room}</h2>
               <p className="empty-text">
                 This is the start of the room. Send the first message — everyone who joins later will see it.
               </p>
@@ -527,6 +604,7 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           onSend={send}
         />
+        {sendError && <p className="error-note send-error" role="alert">{sendError}</p>}
 
         <AnimatePresence>
           {membersOpen && isAdmin && (
@@ -545,8 +623,10 @@ export default function Chat({ username, room, rooms, onLogout, catchUpRequest, 
               me={username}
               room={room}
               messages={messages}
+              catchUpData={catchUpData}
               lastSeenAt={catchUpAnchor}
               activity={activity}
+              activityUnavailable={activityUnavailable}
               loading={activityLoading}
               onClose={() => setCatchUpOpen(false)}
               onJump={jumpTo}

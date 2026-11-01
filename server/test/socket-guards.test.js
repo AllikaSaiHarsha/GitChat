@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 process.env.MONGO_URI = '';
 process.env.JWT_SECRET = 'socket-guard-test-secret';
 
-const { setupSocket, messageStore } = await import('../socket.js');
+const { setupSocket, messageStore, loadCatchUp, historyEvictedRooms, activityStore } = await import('../socket.js');
 const { createRoom } = await import('../rooms.js');
 const { getActivity } = await import('../stats.js');
 
@@ -235,6 +235,7 @@ test('socket token buckets cap sustained bursts', async () => {
   }
   const joined = io.roomEmits.slice(beforeJoins).filter(([, ev]) => ev === 'room_users').length;
   assert.equal(joined, 5);
+  assert.ok(joiner.selfEmits.some(([ev]) => ev === 'join_rate_limited'));
 });
 
 test('activity stats count the rolling window per day (memory path)', async () => {
@@ -251,4 +252,35 @@ test('activity stats count the rolling window per day (memory path)', async () =
   // two recent messages today, one old message outside the window
   assert.deepEqual(activity.days, { [today]: 2 });
   assert.deepEqual(activity.mineDays, { [today]: 1 });
+});
+
+test('catch-up payload bounds messages but reports complete retained counts and people', async () => {
+  const room = 'guard-catch-up';
+  const now = Date.now();
+  const since = new Date(now - 1000);
+  const messages = Array.from({ length: 125 }, (_, i) => ({
+    id: 'catch-' + i,
+    room,
+    username: i % 3 === 0 ? 'alice' : i % 3 === 1 ? 'bob' : 'system',
+    text: 'message ' + i,
+    createdAt: new Date(now + i).toISOString()
+  }));
+  messageStore.set(room, messages);
+  historyEvictedRooms.add(room);
+
+  const recap = await loadCatchUp(room, since);
+  assert.equal(recap.messages.length, 84);
+  assert.equal(recap.totalCount, 84);
+  assert.equal(recap.peopleCount, 2);
+  assert.equal(recap.partial, true);
+  assert.ok(recap.messages.every((message) => message.username !== 'system'));
+});
+
+test('activity stats use uncapped daily counters when available', async () => {
+  const room = 'guard-activity-counter';
+  const today = new Date().toISOString().slice(0, 10);
+  activityStore.set(room, new Map([[today, new Map([[ME, 140], ['other', 90]])]]));
+  const activity = await getActivity(room, ME);
+  assert.equal(activity.days[today], 230);
+  assert.equal(activity.mineDays[today], 140);
 });

@@ -3,7 +3,7 @@ import http from 'http';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
-import { setupSocket, messageStore, loadHistory, evictFromRoom } from './socket.js';
+import { setupSocket, loadHistory, loadCatchUp, evictFromRoom } from './socket.js';
 import { getActivity } from './stats.js';
 import { registerUser, loginUser, verifyToken, requireAuth, userExists } from './auth.js';
 import {
@@ -98,13 +98,21 @@ export function createApp() {
 
   app.get('/api/messages/:room', requireAuth, asyncRoute(async (req, res) => {
     const room = normalizeRoomName(req.params.room) || 'general';
+    const rawSince = req.query.since;
+    if (rawSince !== undefined && typeof rawSince !== 'string') {
+      return res.status(400).json({ error: 'invalid since timestamp' });
+    }
+    const since = rawSince === undefined ? null : new Date(rawSince);
+    if (since && Number.isNaN(since.getTime())) {
+      return res.status(400).json({ error: 'invalid since timestamp' });
+    }
     if (!(await isMember(room, req.user.username))) {
       return res.status(403).json({ error: 'not a member of this room' });
     }
     try {
-      res.json(await loadHistory(room));
+      res.json(since ? await loadCatchUp(room, since) : await loadHistory(room));
     } catch {
-      res.json(messageStore.get(room) || []);
+      res.status(503).json({ error: 'Message history is temporarily unavailable.' });
     }
   }));
 
@@ -126,7 +134,7 @@ export function createApp() {
     try {
       res.json(await getActivity(room, req.user.username));
     } catch {
-      res.json({ room, windowDays: 84, days: {}, mineDays: {} });
+      res.status(503).json({ error: 'Activity data is temporarily unavailable.' });
     }
   }));
 
@@ -157,7 +165,7 @@ export function createApp() {
     try {
       res.json({ rooms: await listRoomsFor(req.user.username) });
     } catch {
-      res.json({ rooms: [{ name: 'general', locked: false }] });
+      res.status(503).json({ error: 'Room list is temporarily unavailable.' });
     }
   }));
 
@@ -263,7 +271,7 @@ export function createApp() {
       return res.status(400).json({ error: 'invalid JSON body' });
     }
     console.error('[api]', req.method, req.originalUrl, '-', err?.stack || err);
-    res.status(500).json({ error: 'internal server error' });
+    res.status(err?.status || 500).json({ error: err?.status ? err.message : 'internal server error' });
   });
 
   const server = http.createServer(app);

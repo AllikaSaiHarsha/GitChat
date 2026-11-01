@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from './models/User.js';
-import { isDbReady } from './db.js';
+import { isDbConfigured, isDbReady } from './db.js';
 
 const JWT_EXPIRES = '7d';
 const DEV_SECRET = 'dev-secret-change-me';
@@ -84,6 +84,9 @@ export async function registerUser(username, password) {
       throw e;
     }
   } else {
+    if (isDbConfigured()) {
+      throw { status: 503, message: 'Account storage is temporarily unavailable. Please try again.' };
+    }
     if (users.has(username)) throw { status: 409, message: 'username taken' };
     users.set(username, { username, passwordHash, createdAt: new Date().toISOString() });
   }
@@ -109,6 +112,10 @@ export async function loginUser(username, password) {
       throw { status: 401, message: 'invalid username or password' };
     }
     hash = u.passwordHash;
+  } else if (isDbConfigured()) {
+    // Never authenticate an in-memory account against a configured but
+    // unavailable database; the account may not exist in durable storage.
+    throw { status: 503, message: 'Account storage is temporarily unavailable. Please try again.' };
   } else {
     const u = users.get(username);
     if (!u) {
@@ -141,11 +148,10 @@ export function requireAuth(req, res, next) {
 export async function userExists(username) {
   if (!username) return false;
   if (isDbReady()) {
-    try {
-      return !!(await User.exists({ username }));
-    } catch {
-      /* fall through to memory */
-    }
+    return !!(await User.exists({ username }));
+  }
+  if (isDbConfigured()) {
+    throw { status: 503, message: 'Account storage is temporarily unavailable. Please try again.' };
   }
   return users.has(username);
 }

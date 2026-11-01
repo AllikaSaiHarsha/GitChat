@@ -85,7 +85,7 @@ button {
   gap: 6px;
   background: var(--primary);
   border: 1px solid transparent;
-  color: #fff;
+  color: #17120f;
   border-radius: var(--radius);
   padding: 7px 14px;
   font-size: 13px;
@@ -155,7 +155,7 @@ button.ghost:hover {
   height: 40px;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: #111827;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -212,6 +212,7 @@ button.ghost:hover {
 .segmented button {
   position: relative;
   flex: 1;
+  min-height: 44px;
   background: transparent;
   border: 1px solid transparent;
   color: var(--muted);
@@ -306,8 +307,9 @@ button.ghost:hover {
 }
 
 .header-icon-btn {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -381,6 +383,7 @@ button.ghost:hover {
   font-size: 12px;
   font-weight: 500;
   padding: 4px 7px;
+  min-height: 44px;
   border-radius: 6px;
 }
 
@@ -436,6 +439,7 @@ button.ghost:hover {
 
 .user-menu-item {
   width: 100%;
+  min-height: 44px;
   justify-content: flex-start;
   gap: 9px;
   background: transparent;
@@ -1079,7 +1083,7 @@ button.ghost:hover {
    ========================================================================== */
 .comment-actions {
   position: absolute;
-  top: 7px;
+  top: 2px;
   right: 8px;
   display: flex;
   align-items: center;
@@ -1087,8 +1091,10 @@ button.ghost:hover {
 }
 
 .comment-actions .msg-action {
-  width: 26px;
-  height: 26px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -1114,7 +1120,8 @@ button.ghost:hover {
   top: calc(100% + 6px);
   right: 0;
   z-index: 40;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 44px);
   gap: 2px;
   padding: 5px;
   background: var(--panel);
@@ -1124,8 +1131,10 @@ button.ghost:hover {
 }
 
 .react-option {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -1155,6 +1164,7 @@ button.ghost:hover {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  min-height: 44px;
   padding: 2px 9px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1521,6 +1531,7 @@ button.ghost:hover {
    Catch me up (recap + activity heatmap)
    ========================================================================== */
 .catchup-btn {
+  min-height: 44px;
   padding: 4px 10px;
   font-size: 12px;
   font-weight: 500;
@@ -1559,8 +1570,9 @@ button.ghost:hover {
 }
 
 .catchup-head .icon-btn {
-  width: 24px;
-  height: 24px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -1587,6 +1599,7 @@ button.ghost:hover {
 
 .catchup-item {
   width: 100%;
+  min-height: 44px;
   justify-content: flex-start;
   gap: 8px;
   padding: 6px;
@@ -2118,8 +2131,10 @@ button.ghost:hover {
 
 .member-remove {
   margin-left: auto;
-  width: 22px;
-  height: 22px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -2239,11 +2254,13 @@ button.ghost:hover {
 }
 
 .dialog-actions .ghost {
+  min-height: 44px;
   padding: 5px 12px;
   font-size: 13px;
 }
 
 .dialog-actions .danger {
+  min-height: 44px;
   padding: 5px 12px;
   font-size: 13px;
   background: #da3633;

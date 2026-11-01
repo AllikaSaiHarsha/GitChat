@@ -70,6 +70,10 @@ test('register → token → /api/me round-trip', async () => {
   const me = await api(base, '/api/me', { token: token1 });
   assert.equal(me.status, 200);
   assert.deepEqual(me.data, { username: U1 });
+
+  const recap = await api(base, '/api/messages/general?since=2026-10-31T00%3A00%3A00.000Z', { token: token1 });
+  assert.equal(recap.status, 200);
+  assert.deepEqual(recap.data, { messages: [], totalCount: 0, peopleCount: 0, partial: false });
 });
 
 test('the session check rejects missing, garbage, and expired tokens', async () => {
@@ -202,6 +206,9 @@ test('malformed request payloads get 400s instead of crashes', async () => {
 
   const members = await api(base, `/api/rooms/${ROOM}/members`, { method: 'POST', token: token1, body: { username: 42 } });
   assert.equal(members.status, 400);
+
+  const badSince = await api(base, `/api/messages/${ROOM}?since=not-a-date`, { token: token1 });
+  assert.equal(badSince.status, 400);
 });
 
 test('malformed JSON is a clean 400', async () => {

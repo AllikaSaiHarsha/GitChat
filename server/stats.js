@@ -1,9 +1,9 @@
 // Activity stats for the "Catch me up" panel (GitHub-style heatmap).
 // Returns per-day message counts for the room and for one user,
 // over a rolling 12-week window. Mongo when connected, else memory.
-import { isDbReady } from './db.js';
+import { isDbConfigured, isDbReady } from './db.js';
 import { Message } from './models/Message.js';
-import { messageStore } from './socket.js';
+import { activityStore, historyEvictedRooms, messageStore } from './socket.js';
 import { normalizeRoomName } from './rooms.js';
 
 const WINDOW_DAYS = 84;
@@ -41,15 +41,34 @@ export async function getActivity(room, username) {
       if (g._id.mine) mineDays[g._id.day] = (mineDays[g._id.day] || 0) + g.count;
     }
   } else {
-    const sinceMs = since.getTime();
-    for (const m of messageStore.get(cleanRoom) || []) {
-      if (new Date(m.createdAt).getTime() < sinceMs) continue;
-      const key = dayKey(m.createdAt);
-      if (!key) continue;
-      days[key] = (days[key] || 0) + 1;
-      if (m.username === username) mineDays[key] = (mineDays[key] || 0) + 1;
+    const counters = activityStore.get(cleanRoom);
+    if (counters) {
+      const sinceKey = since.toISOString().slice(0, 10);
+      for (const [key, byUser] of counters) {
+        if (key < sinceKey) continue;
+        const total = [...byUser.values()].reduce((sum, count) => sum + count, 0);
+        if (total) days[key] = total;
+        const mine = byUser.get(username) || 0;
+        if (mine) mineDays[key] = mine;
+      }
+    } else {
+      const sinceMs = since.getTime();
+      for (const m of messageStore.get(cleanRoom) || []) {
+        if (new Date(m.createdAt).getTime() < sinceMs) continue;
+        const key = dayKey(m.createdAt);
+        if (!key) continue;
+        days[key] = (days[key] || 0) + 1;
+        if (m.username === username) mineDays[key] = (mineDays[key] || 0) + 1;
+      }
     }
   }
 
-  return { room: cleanRoom, windowDays: WINDOW_DAYS, days, mineDays };
+  return {
+    room: cleanRoom,
+    windowDays: WINDOW_DAYS,
+    days,
+    mineDays,
+    partial: isDbConfigured() && !isDbReady()
+      || (!isDbReady() && historyEvictedRooms.has(cleanRoom) && !activityStore.has(cleanRoom))
+  };
 }

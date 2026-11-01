@@ -4,7 +4,7 @@
 import bcrypt from 'bcryptjs';
 import { Room } from './models/Room.js';
 import { Message } from './models/Message.js';
-import { isDbReady } from './db.js';
+import { isDbConfigured, isDbReady } from './db.js';
 import { dummyCompare } from './auth.js';
 
 export const DEFAULT_ROOM = 'general';
@@ -54,6 +54,9 @@ async function getRoom(name) {
       members: doc.members || []
     };
   } catch {
+    if (isDbConfigured()) {
+      throw Object.assign(new Error('Room storage is temporarily unavailable. Please try again.'), { status: 503 });
+    }
     return null;
   }
 }
@@ -61,6 +64,9 @@ async function getRoom(name) {
 // Rooms this user belongs to (plus the always-open default room).
 // `admin` is true for rooms the user created — they can manage those members.
 export async function listRoomsFor(username) {
+  if (isDbConfigured() && !isDbReady()) {
+    throw Object.assign(new Error('Room storage is temporarily unavailable. Please try again.'), { status: 503 });
+  }
   const map = new Map();
   map.set(DEFAULT_ROOM, { name: DEFAULT_ROOM, locked: false, admin: false });
   for (const [name, r] of roomStore) {
@@ -75,7 +81,7 @@ export async function listRoomsFor(username) {
         map.set(d.name, { name: d.name, locked: !!d.passwordHash, admin: d.createdBy === username });
       }
     } catch {
-      /* fall back to what the cache knows */
+      throw Object.assign(new Error('Room storage is temporarily unavailable. Please try again.'), { status: 503 });
     }
   }
   return [...map.values()].sort((a, b) => {
@@ -109,27 +115,35 @@ export async function roomMembers(name) {
 // Add the user to both the durable store and the cache.
 export async function addMember(name, username) {
   const cached = roomStore.get(name);
-  if (cached) cached.members.add(username);
   if (isDbReady()) {
     try {
-      await Room.updateOne({ name }, { $addToSet: { members: username } });
+      const result = await Room.updateOne({ name }, { $addToSet: { members: username } });
+      if (!result.matchedCount) throw Object.assign(new Error('room not found'), { status: 404 });
     } catch (e) {
-      console.log('[rooms] membership save failed:', e.message);
+      if (e.status) throw e;
+      throw Object.assign(new Error('Room membership could not be saved. Please try again.'), { status: 503, cause: e });
     }
+  } else if (isDbConfigured()) {
+    throw Object.assign(new Error('Room storage is temporarily unavailable. Please try again.'), { status: 503 });
   }
+  if (cached) cached.members.add(username);
 }
 
 // Remove a member (admin action). The creator is never removed.
 export async function removeMember(name, username) {
   const cached = roomStore.get(name);
-  if (cached) cached.members.delete(username);
   if (isDbReady()) {
     try {
-      await Room.updateOne({ name }, { $pull: { members: username } });
+      const result = await Room.updateOne({ name }, { $pull: { members: username } });
+      if (!result.matchedCount) throw Object.assign(new Error('room not found'), { status: 404 });
     } catch (e) {
-      console.log('[rooms] membership removal failed:', e.message);
+      if (e.status) throw e;
+      throw Object.assign(new Error('Room membership could not be updated. Please try again.'), { status: 503, cause: e });
     }
+  } else if (isDbConfigured()) {
+    throw Object.assign(new Error('Room storage is temporarily unavailable. Please try again.'), { status: 503 });
   }
+  if (cached) cached.members.delete(username);
 }
 
 // Rooms that only exist as message history (created before memberships) stay
@@ -140,12 +154,11 @@ async function hasHistory(name) {
   try {
     return await Message.exists({ room: name });
   } catch {
-    return false;
+    throw Object.assign(new Error('Room history is temporarily unavailable. Please try again.'), { status: 503 });
   }
 }
 
 async function registerExisting(name, username) {
-  roomStore.set(name, { passwordHash: null, createdBy: username, members: new Set([username]) });
   if (isDbReady()) {
     try {
       await Room.updateOne(
@@ -154,9 +167,12 @@ async function registerExisting(name, username) {
         { upsert: true }
       );
     } catch (e) {
-      console.log('[rooms] room save failed:', e.message);
+      throw Object.assign(new Error('Room storage could not be updated. Please try again.'), { status: 503, cause: e });
     }
+  } else if (isDbConfigured()) {
+    throw Object.assign(new Error('Room storage is temporarily unavailable. Please try again.'), { status: 503 });
   }
+  roomStore.set(name, { passwordHash: null, createdBy: username, members: new Set([username]) });
 }
 
 export async function createRoom(rawName, password, creator) {
@@ -178,18 +194,17 @@ export async function createRoom(rawName, password, creator) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  roomStore.set(name, { passwordHash, createdBy: creator, members: new Set([creator]) });
   if (isDbReady()) {
     try {
       await Room.create({ name, passwordHash, createdBy: creator, members: [creator] });
     } catch (e) {
-      if (e.code === 11000) {
-        roomStore.delete(name);
-        return { error: `#${name} already exists — try joining it instead.`, status: 409 };
-      }
-      console.log('[rooms] room save failed:', e.message);
+      if (e.code === 11000) return { error: `#${name} already exists — try joining it instead.`, status: 409 };
+      throw Object.assign(new Error('Room could not be saved. Please try again.'), { status: 503, cause: e });
     }
+  } else if (isDbConfigured()) {
+    throw Object.assign(new Error('Room storage is temporarily unavailable. Please try again.'), { status: 503 });
   }
+  roomStore.set(name, { passwordHash, createdBy: creator, members: new Set([creator]) });
   return { room: name };
 }
 
@@ -197,6 +212,9 @@ export async function joinRoom(rawName, password, username) {
   const name = normalizeRoomName(rawName);
   if (!name) return { error: 'Enter a room name.', status: 400 };
   if (name === DEFAULT_ROOM) return { room: name };
+  if (isDbConfigured() && !isDbReady() && !roomStore.has(name)) {
+    throw Object.assign(new Error('Room storage is temporarily unavailable. Please try again.'), { status: 503 });
+  }
 
   const room = await getRoom(name);
   if (!room) {

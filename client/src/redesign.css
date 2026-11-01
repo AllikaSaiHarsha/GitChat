@@ -171,7 +171,7 @@ textarea::placeholder {
 
 .header-search {
   max-width: 380px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 7px 12px;
   border-radius: 9px;
   background: rgba(17, 28, 42, 0.86);
@@ -185,7 +185,7 @@ textarea::placeholder {
 
 .header-icon-btn,
 .header-user-btn {
-  min-height: 36px;
+  min-height: 44px;
 }
 
 .user-menu,
@@ -529,7 +529,7 @@ textarea::placeholder {
 }
 
 .palette-item {
-  min-height: 40px;
+  min-height: 44px;
 }
 
 .dialog-card {

@@ -506,14 +506,14 @@ export default function App() {
                 <div className="room-picker">
                   {adminRooms.length > 0 && (
                     <>
-                      <h3 className="sidebar-label">Created by you</h3>
+                      <h2 className="sidebar-label">Created by you</h2>
                       <div className="room-picker-list">{adminRooms.map(roomItem)}</div>
                       <p className="muted room-empty">
                         You're the admin here — open a room to manage its members.
                       </p>
                     </>
                   )}
-                  <h3 className="sidebar-label">Your rooms</h3>
+                  <h2 className="sidebar-label">Your rooms</h2>
                   {roomsError && (
                     <p className="error-note" role="alert">
                       {roomsError}{' '}
